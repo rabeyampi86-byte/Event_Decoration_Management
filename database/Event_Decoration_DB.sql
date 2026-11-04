@@ -1,166 +1,574 @@
--- DecoEase | Event Decoration Management System
--- Source: Event_Decoration_Management.docx, pp. 6-8
--- MySQL 8.0.16+ recommended for CHECK constraints
--- Run on a new database; no DROP statements included.
-CREATE DATABASE IF NOT EXISTS `Event_Decoration_DB` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `Event_Decoration_DB`;
+-- phpMyAdmin SQL Dump
+-- version 5.2.1
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Nov 04, 2026 at 06:54 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
--- 01_users
-CREATE TABLE users (
- user_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- full_name VARCHAR(150) NOT NULL,
- email VARCHAR(191) NOT NULL UNIQUE,
- password_hash VARCHAR(255) NOT NULL,
- phone VARCHAR(25),
- role ENUM('admin','customer') NOT NULL DEFAULT 'customer',
- status ENUM('active','inactive','suspended') NOT NULL DEFAULT 'active'
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `event_decoration_db`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `bookings`
+--
+
+CREATE TABLE `bookings` (
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `customer_id` int(10) UNSIGNED NOT NULL,
+  `package_id` int(10) UNSIGNED NOT NULL,
+  `venue_id` int(10) UNSIGNED DEFAULT NULL,
+  `event_date` date NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `guest_count` int(10) UNSIGNED NOT NULL,
+  `status` enum('pending','quoted','confirmed','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `quoted_total` decimal(12,2) DEFAULT NULL
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `booking_addons`
+--
+
+CREATE TABLE `booking_addons` (
+  `booking_addon_id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `quantity` int(10) UNSIGNED NOT NULL DEFAULT 1,
+  `unit_price` decimal(12,2) NOT NULL
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `booking_staff`
+--
+
+CREATE TABLE `booking_staff` (
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `staff_id` int(10) UNSIGNED NOT NULL,
+  `assignment_role` varchar(150) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 02_customers
-CREATE TABLE customers (
- customer_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- user_id INT UNSIGNED NOT NULL UNIQUE,
- address TEXT,
- preferences TEXT,
- CONSTRAINT fk_customers_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE RESTRICT
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `categories`
+--
+
+CREATE TABLE `categories` (
+  `category_id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `description` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 03_staff
-CREATE TABLE staff (
- staff_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- user_id INT UNSIGNED NULL UNIQUE,
- specialization VARCHAR(150),
- availability_status ENUM('available','busy','unavailable') NOT NULL DEFAULT 'available',
- CONSTRAINT fk_staff_user FOREIGN KEY (user_id) REFERENCES users(user_id) ON UPDATE CASCADE ON DELETE SET NULL
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `customers`
+--
+
+CREATE TABLE `customers` (
+  `customer_id` int(10) UNSIGNED NOT NULL,
+  `user_id` int(10) UNSIGNED NOT NULL,
+  `address` text DEFAULT NULL,
+  `preferences` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 04_categories
-CREATE TABLE categories (
- category_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- name VARCHAR(150) NOT NULL UNIQUE,
- description TEXT
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `decoration_packages`
+--
+
+CREATE TABLE `decoration_packages` (
+  `id` int(11) NOT NULL,
+  `package_name` varchar(150) NOT NULL,
+  `event_type_id` int(11) NOT NULL,
+  `description` text DEFAULT NULL,
+  `price` decimal(10,2) NOT NULL,
+  `image` varchar(255) DEFAULT NULL,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `decoration_packages`
+--
+
+INSERT INTO `decoration_packages` (`id`, `package_name`, `event_type_id`, `description`, `price`, `image`, `status`, `created_at`) VALUES
+(1, 'Basic Wedding Package', 1, 'Simple and elegant wedding decoration', 15000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(2, 'Premium Wedding Package', 1, 'Premium wedding stage and venue decoration', 35000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(3, 'Birthday Celebration Package', 2, 'Colorful birthday party decoration', 8000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(4, 'Holud Special Package', 3, 'Traditional Gaye Holud decoration', 12000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(5, 'Akika Celebration Package', 4, 'Beautiful Akika event decoration', 10000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(6, 'Corporate Event Package', 5, 'Professional corporate event decoration', 20000.00, NULL, 'active', '2026-10-28 10:39:47');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `event_types`
+--
+
+CREATE TABLE `event_types` (
+  `id` int(11) NOT NULL,
+  `type_name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `event_types`
+--
+
+INSERT INTO `event_types` (`id`, `type_name`, `description`, `status`) VALUES
+(1, 'Wedding', 'Wedding ceremony decoration', 'active'),
+(2, 'Birthday', 'Birthday party decoration', 'active'),
+(3, 'Holud', 'Gaye Holud ceremony decoration', 'active'),
+(4, 'Akika', 'Akika celebration decoration', 'active'),
+(5, 'Corporate Event', 'Corporate meeting and event decoration', 'active');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `inventory`
+--
+
+CREATE TABLE `inventory` (
+  `inventory_id` int(10) UNSIGNED NOT NULL,
+  `item_name` varchar(200) NOT NULL,
+  `unit` varchar(40) NOT NULL,
+  `total_quantity` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `available_quantity` int(10) UNSIGNED NOT NULL DEFAULT 0,
+  `replacement_cost` decimal(12,2) NOT NULL DEFAULT 0.00
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `invoices`
+--
+
+CREATE TABLE `invoices` (
+  `invoice_id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `subtotal` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `discount` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `tax` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `issued_at` datetime NOT NULL DEFAULT current_timestamp()
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `packages`
+--
+
+CREATE TABLE `packages` (
+  `package_id` int(10) UNSIGNED NOT NULL,
+  `category_id` int(10) UNSIGNED NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `base_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `package_items`
+--
+
+CREATE TABLE `package_items` (
+  `package_item_id` int(10) UNSIGNED NOT NULL,
+  `package_id` int(10) UNSIGNED NOT NULL,
+  `inventory_id` int(10) UNSIGNED NOT NULL,
+  `quantity_required` int(10) UNSIGNED NOT NULL
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payments`
+--
+
+CREATE TABLE `payments` (
+  `payment_id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `amount` decimal(12,2) NOT NULL,
+  `method` enum('cash','bkash','nagad') NOT NULL,
+  `transaction_reference` varchar(191) DEFAULT NULL,
+  `status` enum('pending','completed','failed','refunded') NOT NULL DEFAULT 'pending',
+  `paid_at` datetime DEFAULT NULL
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `reviews`
+--
+
+CREATE TABLE `reviews` (
+  `review_id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `customer_id` int(10) UNSIGNED NOT NULL,
+  `rating` tinyint(3) UNSIGNED NOT NULL,
+  `comment` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `staff`
+--
+
+CREATE TABLE `staff` (
+  `staff_id` int(10) UNSIGNED NOT NULL,
+  `user_id` int(10) UNSIGNED DEFAULT NULL,
+  `specialization` varchar(150) DEFAULT NULL,
+  `availability_status` enum('available','busy','unavailable') NOT NULL DEFAULT 'available'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 05_packages
-CREATE TABLE packages (
- package_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- category_id INT UNSIGNED NOT NULL,
- title VARCHAR(200) NOT NULL,
- base_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
- description TEXT,
- is_active BOOLEAN NOT NULL DEFAULT TRUE,
- CONSTRAINT chk_packages_price CHECK (base_price >= 0),
- CONSTRAINT fk_packages_category FOREIGN KEY (category_id) REFERENCES categories(category_id) ON UPDATE CASCADE ON DELETE RESTRICT
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `user_id` int(10) UNSIGNED NOT NULL,
+  `full_name` varchar(150) NOT NULL,
+  `email` varchar(191) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `phone` varchar(25) DEFAULT NULL,
+  `role` enum('admin','customer') NOT NULL DEFAULT 'customer',
+  `status` enum('active','inactive','suspended') NOT NULL DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 06_inventory
-CREATE TABLE inventory (
- inventory_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- item_name VARCHAR(200) NOT NULL,
- unit VARCHAR(40) NOT NULL,
- total_quantity INT UNSIGNED NOT NULL DEFAULT 0,
- available_quantity INT UNSIGNED NOT NULL DEFAULT 0,
- replacement_cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
- CONSTRAINT chk_inventory_available CHECK (available_quantity <= total_quantity),
- CONSTRAINT chk_inventory_cost CHECK (replacement_cost >= 0)
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`user_id`, `full_name`, `email`, `password_hash`, `phone`, `role`, `status`) VALUES
+(1, 'Mst Rabeya', 'rabeya@gmail.com', 'f9a5a011e63007a4c2aea27088dc9aaae95925ca', '01861093392', 'admin', 'active'),
+(3, 'Admin', 'admin@gmail.com', '$2y$10$sMAch6EwAjgWhPRniWSmiuCiYR2eQtqYQcLywcqyHDRvlJfYAPcmG', '01236589428', 'admin', 'active'),
+(4, 'Kazi Modina', 'modina@gmail.com', '$2y$10$ikDZdxVMKhno80bT2SaBQ.eDHjxo6bD5wB97FVRP2hSZdyQX3Hi8a', '01536589428', 'customer', 'active');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `venues`
+--
+
+CREATE TABLE `venues` (
+  `venue_id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(200) NOT NULL,
+  `address` text DEFAULT NULL,
+  `capacity` int(10) UNSIGNED DEFAULT NULL,
+  `contact_phone` varchar(25) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 07_package_items
-CREATE TABLE package_items (
- package_item_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- package_id INT UNSIGNED NOT NULL,
- inventory_id INT UNSIGNED NOT NULL,
- quantity_required INT UNSIGNED NOT NULL,
- CONSTRAINT chk_package_items_quantity CHECK (quantity_required > 0),
- CONSTRAINT fk_package_items_package FOREIGN KEY (package_id) REFERENCES packages(package_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- CONSTRAINT fk_package_items_inventory FOREIGN KEY (inventory_id) REFERENCES inventory(inventory_id) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for dumped tables
+--
 
--- 08_venues
-CREATE TABLE venues (
- venue_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- name VARCHAR(200) NOT NULL,
- address TEXT,
- capacity INT UNSIGNED,
- contact_phone VARCHAR(25)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `bookings`
+--
+ALTER TABLE `bookings`
+  ADD PRIMARY KEY (`booking_id`),
+  ADD KEY `fk_bookings_customer` (`customer_id`),
+  ADD KEY `fk_bookings_package` (`package_id`),
+  ADD KEY `fk_bookings_venue` (`venue_id`);
 
--- 09_bookings
-CREATE TABLE bookings (
- booking_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- customer_id INT UNSIGNED NOT NULL,
- package_id INT UNSIGNED NOT NULL,
- venue_id INT UNSIGNED NULL,
- event_date DATE NOT NULL,
- start_time TIME NOT NULL,
- end_time TIME NOT NULL,
- guest_count INT UNSIGNED NOT NULL,
- status ENUM('pending','quoted','confirmed','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending',
- quoted_total DECIMAL(12,2) NULL,
- CONSTRAINT chk_bookings_guest_count CHECK (guest_count > 0),
- CONSTRAINT chk_bookings_quoted_total CHECK (quoted_total IS NULL OR quoted_total >= 0),
- CONSTRAINT fk_bookings_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- CONSTRAINT fk_bookings_package FOREIGN KEY (package_id) REFERENCES packages(package_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- CONSTRAINT fk_bookings_venue FOREIGN KEY (venue_id) REFERENCES venues(venue_id) ON UPDATE CASCADE ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `booking_addons`
+--
+ALTER TABLE `booking_addons`
+  ADD PRIMARY KEY (`booking_addon_id`),
+  ADD KEY `fk_addons_booking` (`booking_id`);
 
--- 10_booking_addons
-CREATE TABLE booking_addons (
- booking_addon_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- booking_id INT UNSIGNED NOT NULL,
- title VARCHAR(200) NOT NULL,
- quantity INT UNSIGNED NOT NULL DEFAULT 1,
- unit_price DECIMAL(12,2) NOT NULL,
- CONSTRAINT chk_addons_quantity CHECK (quantity > 0),
- CONSTRAINT chk_addons_price CHECK (unit_price >= 0),
- CONSTRAINT fk_addons_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `booking_staff`
+--
+ALTER TABLE `booking_staff`
+  ADD PRIMARY KEY (`booking_id`,`staff_id`),
+  ADD KEY `fk_booking_staff_staff` (`staff_id`);
 
--- 11_payments
-CREATE TABLE payments (
- payment_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- booking_id INT UNSIGNED NOT NULL,
- amount DECIMAL(12,2) NOT NULL,
- method ENUM('cash','bkash','nagad') NOT NULL,
- transaction_reference VARCHAR(191) NULL UNIQUE,
- status ENUM('pending','completed','failed','refunded') NOT NULL DEFAULT 'pending',
- paid_at DATETIME NULL,
- CONSTRAINT chk_payments_amount CHECK (amount > 0),
- CONSTRAINT fk_payments_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `categories`
+--
+ALTER TABLE `categories`
+  ADD PRIMARY KEY (`category_id`),
+  ADD UNIQUE KEY `name` (`name`);
 
--- 12_invoices
-CREATE TABLE invoices (
- invoice_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- booking_id INT UNSIGNED NOT NULL UNIQUE,
- subtotal DECIMAL(12,2) NOT NULL DEFAULT 0.00,
- discount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
- tax DECIMAL(12,2) NOT NULL DEFAULT 0.00,
- total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
- issued_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- CONSTRAINT chk_invoices_amounts CHECK (subtotal >= 0 AND discount >= 0 AND tax >= 0 AND total >= 0),
- CONSTRAINT fk_invoices_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `customers`
+--
+ALTER TABLE `customers`
+  ADD PRIMARY KEY (`customer_id`),
+  ADD UNIQUE KEY `user_id` (`user_id`);
 
--- 13_booking_staff
-CREATE TABLE booking_staff (
- booking_id INT UNSIGNED NOT NULL,
- staff_id INT UNSIGNED NOT NULL,
- assignment_role VARCHAR(150) NOT NULL,
- PRIMARY KEY (booking_id, staff_id),
- CONSTRAINT fk_booking_staff_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- CONSTRAINT fk_booking_staff_staff FOREIGN KEY (staff_id) REFERENCES staff(staff_id) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `decoration_packages`
+--
+ALTER TABLE `decoration_packages`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `event_type_id` (`event_type_id`);
 
--- 14_reviews
-CREATE TABLE reviews (
- review_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
- booking_id INT UNSIGNED NOT NULL UNIQUE,
- customer_id INT UNSIGNED NOT NULL,
- rating TINYINT UNSIGNED NOT NULL,
- comment TEXT,
- created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5),
- CONSTRAINT fk_reviews_booking FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON UPDATE CASCADE ON DELETE RESTRICT,
- CONSTRAINT fk_reviews_customer FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON UPDATE CASCADE ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+--
+-- Indexes for table `event_types`
+--
+ALTER TABLE `event_types`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `type_name` (`type_name`);
+
+--
+-- Indexes for table `inventory`
+--
+ALTER TABLE `inventory`
+  ADD PRIMARY KEY (`inventory_id`);
+
+--
+-- Indexes for table `invoices`
+--
+ALTER TABLE `invoices`
+  ADD PRIMARY KEY (`invoice_id`),
+  ADD UNIQUE KEY `booking_id` (`booking_id`);
+
+--
+-- Indexes for table `packages`
+--
+ALTER TABLE `packages`
+  ADD PRIMARY KEY (`package_id`),
+  ADD KEY `fk_packages_category` (`category_id`);
+
+--
+-- Indexes for table `package_items`
+--
+ALTER TABLE `package_items`
+  ADD PRIMARY KEY (`package_item_id`),
+  ADD KEY `fk_package_items_package` (`package_id`),
+  ADD KEY `fk_package_items_inventory` (`inventory_id`);
+
+--
+-- Indexes for table `payments`
+--
+ALTER TABLE `payments`
+  ADD PRIMARY KEY (`payment_id`),
+  ADD UNIQUE KEY `transaction_reference` (`transaction_reference`),
+  ADD KEY `fk_payments_booking` (`booking_id`);
+
+--
+-- Indexes for table `reviews`
+--
+ALTER TABLE `reviews`
+  ADD PRIMARY KEY (`review_id`),
+  ADD UNIQUE KEY `booking_id` (`booking_id`),
+  ADD KEY `fk_reviews_customer` (`customer_id`);
+
+--
+-- Indexes for table `staff`
+--
+ALTER TABLE `staff`
+  ADD PRIMARY KEY (`staff_id`),
+  ADD UNIQUE KEY `user_id` (`user_id`);
+
+--
+-- Indexes for table `users`
+--
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`user_id`),
+  ADD UNIQUE KEY `email` (`email`);
+
+--
+-- Indexes for table `venues`
+--
+ALTER TABLE `venues`
+  ADD PRIMARY KEY (`venue_id`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `bookings`
+--
+ALTER TABLE `bookings`
+  MODIFY `booking_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `booking_addons`
+--
+ALTER TABLE `booking_addons`
+  MODIFY `booking_addon_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `categories`
+--
+ALTER TABLE `categories`
+  MODIFY `category_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `customers`
+--
+ALTER TABLE `customers`
+  MODIFY `customer_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `decoration_packages`
+--
+ALTER TABLE `decoration_packages`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT for table `event_types`
+--
+ALTER TABLE `event_types`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT for table `inventory`
+--
+ALTER TABLE `inventory`
+  MODIFY `inventory_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `invoices`
+--
+ALTER TABLE `invoices`
+  MODIFY `invoice_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `packages`
+--
+ALTER TABLE `packages`
+  MODIFY `package_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `package_items`
+--
+ALTER TABLE `package_items`
+  MODIFY `package_item_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `payments`
+--
+ALTER TABLE `payments`
+  MODIFY `payment_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `reviews`
+--
+ALTER TABLE `reviews`
+  MODIFY `review_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `staff`
+--
+ALTER TABLE `staff`
+  MODIFY `staff_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `users`
+--
+ALTER TABLE `users`
+  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `venues`
+--
+ALTER TABLE `venues`
+  MODIFY `venue_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `bookings`
+--
+ALTER TABLE `bookings`
+  ADD CONSTRAINT `fk_bookings_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`customer_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_bookings_package` FOREIGN KEY (`package_id`) REFERENCES `packages` (`package_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_bookings_venue` FOREIGN KEY (`venue_id`) REFERENCES `venues` (`venue_id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
+-- Constraints for table `booking_addons`
+--
+ALTER TABLE `booking_addons`
+  ADD CONSTRAINT `fk_addons_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `booking_staff`
+--
+ALTER TABLE `booking_staff`
+  ADD CONSTRAINT `fk_booking_staff_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_booking_staff_staff` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`staff_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `customers`
+--
+ALTER TABLE `customers`
+  ADD CONSTRAINT `fk_customers_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `invoices`
+--
+ALTER TABLE `invoices`
+  ADD CONSTRAINT `fk_invoices_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `packages`
+--
+ALTER TABLE `packages`
+  ADD CONSTRAINT `fk_packages_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`category_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `package_items`
+--
+ALTER TABLE `package_items`
+  ADD CONSTRAINT `fk_package_items_inventory` FOREIGN KEY (`inventory_id`) REFERENCES `inventory` (`inventory_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_package_items_package` FOREIGN KEY (`package_id`) REFERENCES `packages` (`package_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `payments`
+--
+ALTER TABLE `payments`
+  ADD CONSTRAINT `fk_payments_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `reviews`
+--
+ALTER TABLE `reviews`
+  ADD CONSTRAINT `fk_reviews_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_reviews_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`customer_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `staff`
+--
+ALTER TABLE `staff`
+  ADD CONSTRAINT `fk_staff_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE SET NULL ON UPDATE CASCADE;
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
