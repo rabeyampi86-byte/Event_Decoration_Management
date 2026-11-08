@@ -1,17 +1,12 @@
 
 <?php
 session_start();
+require_once "../db.php";
 
-// Fixed Admin Credentials
-$admin_email = "rabeya@gmail.com";
-$admin_password = "rabi123";
-
-// Already logged in
-if (
-    isset($_SESSION['admin_logged_in']) &&
-    $_SESSION['admin_logged_in'] === true
-) {
-    
+// Already logged-in admin
+if (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
+    header("Location: dashboard.php");
+    exit();
 }
 
 $error = "";
@@ -21,21 +16,51 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if ($email === $admin_email && $password === $admin_password) {
-
-        session_regenerate_id(true);
-
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['user_id'] = 0;
-        $_SESSION['user_name'] = "Rabeya";
-        $_SESSION['user_email'] = $admin_email;
-        $_SESSION['user_role'] = "admin";
-
-        header("Location: dashboard.php");
-        exit();
-
+    if ($email === "" || $password === "") {
+        $error = "Please enter both email and password.";
     } else {
-        $error = "Invalid email or password!";
+
+        $stmt = $conn->prepare(
+            "SELECT user_id, full_name, email, password_hash, role, status
+             FROM users
+             WHERE email = ?
+             LIMIT 1"
+        );
+
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 1) {
+
+            $admin = $result->fetch_assoc();
+
+            if (
+                $admin['role'] === 'admin' &&
+                $admin['status'] === 'active' &&
+                password_verify($password, $admin['password_hash'])
+            ) {
+
+                session_regenerate_id(true);
+
+                $_SESSION['user_id'] = $admin['user_id'];
+                $_SESSION['user_name'] = $admin['full_name'];
+                $_SESSION['user_email'] = $admin['email'];
+                $_SESSION['user_role'] = $admin['role'];
+
+                header("Location: dashboard.php");
+                exit();
+
+            } else {
+                $error = "Invalid admin email or password.";
+            }
+
+        } else {
+            $error = "Invalid admin email or password.";
+        }
+
+        $stmt->close();
     }
 }
 ?>

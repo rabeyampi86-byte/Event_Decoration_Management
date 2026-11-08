@@ -5,8 +5,8 @@ session_start();
 $message = "";
 $messageType = "";
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    require_once __DIR__ . '/db.php';
+if (isset($_POST['submit'])) {
+    include_once 'db.php';
 
     $email = trim($_POST["email"] ?? "");
     $password = $_POST["password"] ?? "";
@@ -14,12 +14,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if ($email === "" || $password === "") {
         $message = "Please enter your email and password.";
         $messageType = "error";
+
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $message = "Please enter a valid email address.";
         $messageType = "error";
+
     } else {
         $stmt = $conn->prepare(
-            "SELECT id, name, email, password, role
+            "SELECT user_id, full_name, email, password_hash, phone, role, status
              FROM users
              WHERE email = ?
              LIMIT 1"
@@ -31,21 +33,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $result = $stmt->get_result();
         $user = $result->fetch_assoc();
 
-        if ($user && password_verify($password, $user["password"])) {
+        if (
+            $user &&
+            password_verify($password, $user["password_hash"]) &&
+            $user["status"] === "active"
+        ) {
             session_regenerate_id(true);
 
-            $_SESSION["user_id"] = $user["id"];
-            $_SESSION["user_name"] = $user["name"];
+            $_SESSION["user_id"] = $user["user_id"];
+            $_SESSION["user_name"] = $user["full_name"];
             $_SESSION["user_email"] = $user["email"];
             $_SESSION["user_role"] = $user["role"];
 
             $stmt->close();
             $conn->close();
 
-            header("Location: index.php");
+            if ($user["role"] === "admin") {
+                header("Location: admin/dashboard.php");
+            } else {
+                header("Location: index.php");
+            }
             exit;
+
         } else {
-            $message = "Incorrect email or password.";
+            $message = "Incorrect email or password, or your account is inactive.";
             $messageType = "error";
         }
 
@@ -56,6 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 ?>
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -64,7 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     <title>Login | DecorEase</title>
 
-    <?php include __DIR__ . '/includes/nav_style.php'; ?>
+    <?php include 'includes/nav_style.php'; ?>
 
     <style>
         * {
@@ -197,7 +209,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <body>
 
-    <?php include __DIR__ . '/includes/navbar.php'; ?>
+    <?php include 'includes/navber.php'; ?>
 
     <main class="login-container">
         <section class="login-box">
@@ -250,7 +262,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     <label for="remember">Remember me</label>
                 </div>
 
-                <button type="submit" class="login-btn">
+                <button type="submit" name ="submit" class="login-btn">
                     Login
                 </button>
 
@@ -264,9 +276,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </section>
     </main>
 
-    <footer class="login-footer">
-        &copy; 2026 DecorEase. All rights reserved.
-    </footer>
+    <?php include 'includes/footer.php'; ?>
 
 </body>
 </html>
