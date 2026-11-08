@@ -120,14 +120,24 @@ if (!$packages) {
             transform: translateY(-5px);
         }
 
-        .package-image {
-            height: 170px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #f9dce6;
-            font-size: 55px;
-        }
+       .package-image {
+    width: 100%;
+    height: 210px;
+    overflow: hidden;
+    background-color: #f9dce6;
+}
+
+.package-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s ease;
+}
+
+.package-card:hover .package-image img {
+    transform: scale(1.06);
+}
 
         .package-details {
             padding: 22px;
@@ -298,42 +308,54 @@ if (!$packages) {
 
                         <?php
 
-                        $eventName = strtolower($package['type_name']);
+                        $eventName = strtolower(trim($package['type_name']));
 
-                        $icon = '🎉';
+$image = 'images/custom.jpg';
 
-                        if (strpos($eventName, 'wedding') !== false) {
+if (strpos($eventName, 'wedding') !== false) {
 
-                            $icon = '💐';
+    $image = 'images/wed.png';
 
-                        } elseif (strpos($eventName, 'birthday') !== false) {
+} elseif (strpos($eventName, 'engagement') !== false) {
 
-                            $icon = '🎈';
+    $image = 'images/gate2.png';
 
-                        } elseif (strpos($eventName, 'holud') !== false) {
+} elseif (strpos($eventName, 'holud') !== false) {
 
-                            $icon = '🌼';
+    $image = 'images/h2.jpg';
 
-                        } elseif (strpos($eventName, 'akika') !== false) {
+} elseif (
+    strpos($eventName, 'akika') !== false ||
+    strpos($eventName, 'aqiqah') !== false
+) {
 
-                            $icon = '🌺';
+    $image = 'images/ak1.jpg';
 
-                        } elseif (strpos($eventName, 'corporate') !== false) {
+} elseif (strpos($eventName, 'birthday') !== false) {
 
-                            $icon = '🏢';
+    $image = 'images/h3.jpg';
 
-                        }
+} elseif (strpos($eventName, 'corporate') !== false) {
+
+    $image = 'images/com2.jpg';
+
+} elseif (strpos($eventName, 'anniversary') !== false) {
+
+    $image = 'images/anniversary.jpg';
+
+}
 
                         ?>
 
 
                         <div class="package-card">
 
-                            <div class="package-image">
-
-                                <?php echo $icon; ?>
-
-                            </div>
+                           <div class="package-image">
+    <img
+        src="<?php echo htmlspecialchars($image); ?>"
+        alt="<?php echo htmlspecialchars($package['type_name']); ?> Decoration"
+    >
+</div>
 
 
                             <div class="package-details">

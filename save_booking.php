@@ -19,11 +19,8 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 }
 
 $userId = (int) $_SESSION["user_id"];
-$packageId = filter_input(
-    INPUT_POST,
-    "package_id",
-    FILTER_VALIDATE_INT
-);
+
+$packageId = filter_input(INPUT_POST, "package_id", FILTER_VALIDATE_INT);
 
 $eventDate = trim($_POST["event_date"] ?? "");
 $eventLocation = trim($_POST["event_location"] ?? "");
@@ -62,15 +59,12 @@ if (
     exit("Please select a valid event date.");
 }
 
-// Verify that the selected package is active
+/// Verify that the selected package is active
 $packageStmt = $conn->prepare("
-    SELECT decoration_packages.id
-    FROM decoration_packages
-    INNER JOIN event_types
-        ON decoration_packages.event_type_id = event_types.id
-    WHERE decoration_packages.id = ?
-      AND decoration_packages.status = 'active'
-      AND event_types.status = 'active'
+    SELECT package_id, base_price
+    FROM packages
+    WHERE package_id = ?
+      AND is_active = 1
 ");
 
 $packageStmt->bind_param("i", $packageId);
@@ -82,34 +76,101 @@ if ($packageResult->num_rows !== 1) {
     exit("This package is unavailable. Please select another package.");
 }
 
-// Save booking with pending status
+$package = $packageResult->fetch_assoc();
+$quotedTotal = (float)$package['base_price'];
+// Get or create customer profile
+$customerStmt = $conn->prepare("
+    SELECT customer_id
+    FROM customers
+    WHERE user_id = ?
+    LIMIT 1
+");
+
+$customerStmt->bind_param("i", $userId);
+$customerStmt->execute();
+
+$customerResult = $customerStmt->get_result();
+
+if ($customerResult->num_rows === 1) {
+
+    $customerData = $customerResult->fetch_assoc();
+    $customerId = (int)$customerData['customer_id'];
+
+} else {
+
+    $createCustomer = $conn->prepare("
+        INSERT INTO customers (user_id)
+        VALUES (?)
+    ");
+
+    $createCustomer->bind_param("i", $userId);
+
+    if (!$createCustomer->execute()) {
+        exit("Could not create customer profile.");
+    }
+
+    $customerId = (int)$conn->insert_id;
+    $createCustomer->close();
+}
+
+$customerStmt->close();
+// Get an available venue
+$venueStmt = $conn->prepare("
+    SELECT venue_id FROM venues
+    ORDER BY venue_id ASC
+    LIMIT 1
+");
+
+$venueStmt->execute();
+$venueResult = $venueStmt->get_result();
+
+if ($venueResult->num_rows === 0) {
+    exit("No venue is available.");
+}
+
+$venue = $venueResult->fetch_assoc();
+$venueId = (int)$venue['venue_id'];
+$venueStmt->close();
+
+
+$startTime = "10:00:00";
+$endTime = "18:00:00";
+
+// Save booking
 $insertStmt = $conn->prepare("
     INSERT INTO bookings (
-        user_id,
+        customer_id,
         package_id,
+        venue_id,
         event_date,
-        event_location,
+        start_time,
+        end_time,
         guest_count,
+        event_location,
         special_request,
         payment_method,
         transaction_id,
-        status
+        status,
+        quoted_total
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
 ");
 
 $insertStmt->bind_param(
-    "iississs",
-    $userId,
+    "iiississsssd",
+    $customerId,
     $packageId,
+    $venueId,
     $eventDate,
-    $eventLocation,
+    $startTime,
+    $endTime,
     $guestCount,
+    $eventLocation,
     $specialRequest,
     $paymentMethod,
-    $transactionId
+    $transactionId,
+    $quotedTotal
 );
-
 if ($insertStmt->execute()) {
     $bookingId = $conn->insert_id;
     ?>

@@ -24,7 +24,12 @@ $page_title = "Our Services | DecorEase";
 .service-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
 .service-card{position:relative;overflow:hidden;background:#fff;border:1px solid #f0dce4;border-radius:12px;box-shadow:0 5px 18px rgba(65,28,46,.07);transition:.25s;min-width:0}
 .service-card:hover{transform:translateY(-5px);box-shadow:0 12px 25px rgba(65,28,46,.14)}
-.service-visual{height:142px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;color:#fff}
+.service-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
 .service-visual:before,.service-visual:after{content:"";position:absolute;border:1px solid rgba(255,255,255,.25);border-radius:50%;width:170px;height:170px}
 .service-visual:after{width:220px;height:220px}
 .service-visual .symbol{position:relative;z-index:1;font-size:54px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.18))}
@@ -55,23 +60,130 @@ $page_title = "Our Services | DecorEase";
 <?php include 'includes/navber.php'; ?>
 <main>
 <section class="services-hero">
- <div class="hero-kicker">DecorEase • Celebrate beautifully</div>
+ <div class="hero-kicker">
+    DecorEase • Celebrate beautifully
+</div>
  <h1>Decoration for Every Celebration</h1>
- <p>From intimate family occasions to grand celebrations, we create beautiful spaces that make your special moments unforgettable.</p>
+ <p>
+    From intimate family occasions to grand celebrations, we create beautiful spaces that make your special moments unforgettable.
+</p>
 </section>
 <section class="services-wrap">
- <div class="section-heading"><span>What we do</span><h2>Our Event Decoration Services</h2><p>Thoughtful themes, beautiful details and a setup made for your occasion.</p></div>
+ <div class="section-heading">
+    <span>What we do</span><h2>Our Event Decoration Services</h2>
+    <p>
+        Thoughtful themes, beautiful details and a setup made for your occasion.
+    </p>
+</div>
  <div class="service-grid">
-  <article class="service-card"><div class="service-visual v-wedding"><span class="symbol">💍</span></div><div class="service-info"><h3>Wedding Decoration</h3><p>Elegant wedding stages, entrance gates, floral arrangements and coordinated venue styling.</p><a class="service-link" href="packages.php">Explore packages <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-engagement"><span class="symbol">💐</span></div><div class="service-info"><h3>Engagement Decoration</h3><p>Beautiful backdrops, floral details and a charming setup for your engagement ceremony.</p><a class="service-link" href="packages.php">Explore packages <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-holud"><span class="symbol">🌼</span></div><div class="service-info"><h3>Holud Decoration</h3><p>Vibrant yellow themes, marigold-inspired details and colorful traditional event styling.</p><a class="service-link" href="packages.php">Explore packages <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-anniversary"><span class="symbol">❤️</span></div><div class="service-info"><h3>Anniversary Decoration</h3><p>Warm lighting, romantic backdrops and floral accents for meaningful milestones.</p><a class="service-link" href="packages.php">Explore packages <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-birthday"><span class="symbol">🎂</span></div><div class="service-info"><h3>Birthday Decoration</h3><p>Creative balloon styling, themed backdrops and joyful setups for all ages.</p><a class="service-link" href="packages.php">Explore packages <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-akika"><span class="symbol">🧸</span></div><div class="service-info"><h3>Akika Decoration</h3><p>Soft, welcoming themes and tasteful decoration for your family’s special gathering.</p><a class="service-link" href="packages.php">Explore packages <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-corporate"><span class="symbol">🏢</span></div><div class="service-info"><h3>Corporate Events</h3><p>Neat, professional stage and venue decoration for meetings, launches and celebrations.</p><a class="service-link" href="contact.php">Discuss your event <span>→</span></a></div></article>
-  <article class="service-card"><div class="service-visual v-custom"><span class="symbol">✨</span></div><div class="service-info"><h3>Customized Events</h3><p>Have a unique idea? We can shape a decoration concept around your theme and requirements.</p><a class="service-link" href="contact.php">Discuss your idea <span>→</span></a></div></article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/wed1.png" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Wedding Decoration</h3>
+        <p>Elegant wedding stages, entrance gates, floral arrangements and coordinated venue styling.
+        </p>
+        <a class="service-link" href="packages.php">Explore packages <span>→</span>
+    </a>
+</div>
+</article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/en1.png" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Engagement Decoration</h3>
+        <p>
+            Beautiful backdrops, floral details and a charming setup for your engagement ceremony.
+        </p>
+        <a class="service-link" href="packages.php">Explore packages <span>→</span>
+    </a>
+</div>
+</article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/h1.png" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Holud Decoration</h3>
+        <p>
+            Vibrant yellow themes, marigold-inspired details and colorful traditional event styling.
+        </p>
+        <a class="service-link" href="packages.php">Explore packages <span>→</span></a
+        ></div>
+    </article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/wed2.png" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Anniversary Decoration</h3>
+        <p>
+            Warm lighting, romantic backdrops and floral accents for meaningful milestones.
+        </p>
+        <a class="service-link" href="packages.php">Explore packages <span>→</span></a>
+    </div>
+</article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/b.png" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Birthday Decoration</h3>
+        <p>
+            Creative balloon styling, themed backdrops and joyful setups for all ages. 
+        </p>
+        <a class="service-link" href="packages.php">Explore packages <span>→</span></a>
+    </div>
+</article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/ak.png" alt="Wedding Decoration">
+    </div>
+  <div class="service-info">
+    <h3>Akika Decoration</h3>
+    <p>
+        Soft, welcoming themes and tasteful decoration for your family’s special gathering.
+    </p>
+    <a class="service-link" href="packages.php">Explore packages <span>→</span></a>
+</div>
+</article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/c.jpg" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Corporate Events</h3>
+        <p>
+            Neat, professional stage and venue decoration for meetings, launches and celebrations.
+        </p>
+        <a class="service-link" href="contact.php">Discuss your event <span>→</span></a>
+    </div>
+</article>
+  <article class="service-card">
+    <div class="service-visual">
+        <img src="images/com1.png" alt="Wedding Decoration">
+    </div>
+    <div class="service-info">
+        <h3>Customized Events</h3>
+        <p>
+            Have a unique idea? We can shape a decoration concept around your theme and requirements.
+        </p>
+        <a class="service-link" href="contact.php">Discuss your idea <span>→</span>
+    </a>
+</div>
+</article>
  </div>
- <div class="service-cta"><div><h2>Have a celebration in mind?</h2><p>Tell us your event type, preferred theme and date. Let’s plan something beautiful.</p></div><a class="cta-btn" href="contact.php">Contact DecorEase</a></div>
+ <div class="service-cta"><div>
+    <h2>Have a celebration in mind?</h2>
+    <p>
+        Tell us your event type, preferred theme and date. Let’s plan something beautiful.
+    </p>
+</div>
+<a class="cta-btn" href="contact.php">Contact DecorEase
+</a>
+</div>
 </section>
 </main>
 <?php include 'includes/footer.php'; ?>
