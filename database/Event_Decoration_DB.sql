@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 04, 2026 at 06:54 PM
+-- Generation Time: Nov 08, 2026 at 09:50 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -38,7 +38,7 @@ CREATE TABLE `bookings` (
   `guest_count` int(10) UNSIGNED NOT NULL,
   `status` enum('pending','quoted','confirmed','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending',
   `quoted_total` decimal(12,2) DEFAULT NULL
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -52,7 +52,7 @@ CREATE TABLE `booking_addons` (
   `title` varchar(200) NOT NULL,
   `quantity` int(10) UNSIGNED NOT NULL DEFAULT 1,
   `unit_price` decimal(12,2) NOT NULL
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -157,7 +157,7 @@ CREATE TABLE `inventory` (
   `total_quantity` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `available_quantity` int(10) UNSIGNED NOT NULL DEFAULT 0,
   `replacement_cost` decimal(12,2) NOT NULL DEFAULT 0.00
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -173,7 +173,7 @@ CREATE TABLE `invoices` (
   `tax` decimal(12,2) NOT NULL DEFAULT 0.00,
   `total` decimal(12,2) NOT NULL DEFAULT 0.00,
   `issued_at` datetime NOT NULL DEFAULT current_timestamp()
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -188,7 +188,7 @@ CREATE TABLE `packages` (
   `base_price` decimal(12,2) NOT NULL DEFAULT 0.00,
   `description` text DEFAULT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 1
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -201,7 +201,7 @@ CREATE TABLE `package_items` (
   `package_id` int(10) UNSIGNED NOT NULL,
   `inventory_id` int(10) UNSIGNED NOT NULL,
   `quantity_required` int(10) UNSIGNED NOT NULL
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -217,7 +217,7 @@ CREATE TABLE `payments` (
   `transaction_reference` varchar(191) DEFAULT NULL,
   `status` enum('pending','completed','failed','refunded') NOT NULL DEFAULT 'pending',
   `paid_at` datetime DEFAULT NULL
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -232,7 +232,7 @@ CREATE TABLE `reviews` (
   `rating` tinyint(3) UNSIGNED NOT NULL,
   `comment` text DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -268,9 +268,10 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`user_id`, `full_name`, `email`, `password_hash`, `phone`, `role`, `status`) VALUES
-(1, 'Mst Rabeya', 'rabeya@gmail.com', 'f9a5a011e63007a4c2aea27088dc9aaae95925ca', '01861093392', 'admin', 'active'),
+(1, 'Mst Rabeya', 'rabeya@gmail.com', '$2y$10$/jWcE7IbrpZg4uBdtNprbu3MNxWxy7ATVzslsTwo.0SBIgEpM64EW', '01861093392', 'admin', 'active'),
 (3, 'Admin', 'admin@gmail.com', '$2y$10$sMAch6EwAjgWhPRniWSmiuCiYR2eQtqYQcLywcqyHDRvlJfYAPcmG', '01236589428', 'admin', 'active'),
-(4, 'Kazi Modina', 'modina@gmail.com', '$2y$10$ikDZdxVMKhno80bT2SaBQ.eDHjxo6bD5wB97FVRP2hSZdyQX3Hi8a', '01536589428', 'customer', 'active');
+(4, 'Kazi Modina', 'modina@gmail.com', '$2y$10$NM/aw4RH7iXvAGupBtISNe4ZmAsDbZuP57uaTCbsUBt32f1ef2YRW', '01536589428', 'customer', 'active'),
+(5, 'Rima Rani', 'rima@gmail.com', '$2y$10$0w6KiE.7c/89UY/MUi2hxeBWtxIMqFdKaWmtzeHB2.w3unWo4lTCa', '013256987452', 'customer', 'active');
 
 -- --------------------------------------------------------
 
@@ -491,7 +492,7 @@ ALTER TABLE `staff`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `venues`

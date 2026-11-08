@@ -47,40 +47,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $message = "This email is already registered.";
             $messageType = "error";
         } else {
-            $hashedPassword = password_hash(
-                $password,
-                PASSWORD_DEFAULT
-            );
+            
+$hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-            $stmt = $conn->prepare(
-                "INSERT INTO users (name, email, phone, password)
-                 VALUES (?, ?, ?, ?)"
-            );
+$role = 'customer';
+$status = 'active';
 
-            $stmt->bind_param(
-                "ssss",
-                $name,
-                $email,
-                $phone,
-                $hashedPassword
-            );
+$stmt = $conn->prepare(
+    "INSERT INTO users 
+    (full_name, email, password_hash, phone, role, status)
+    VALUES (?, ?, ?, ?, ?, ?)"
+);
 
-            if ($stmt->execute()) {
-                $message = "Account created successfully! You can now login.";
-                $messageType = "success";
-            } else {
-                $message = "Registration failed. Please try again.";
-                $messageType = "error";
-            }
+$stmt->bind_param(
+    "ssssss",
+    $name,
+    $email,
+    $hashedPassword,
+    $phone,
+    $role,
+    $status
+);
 
-            $stmt->close();
-        }
-
-        $check->close();
-    }
-
-    $conn->close();
+if ($stmt->execute()) {
+    $message = "Account created successfully! You can now login.";
+    $messageType = "success";
+} else {
+    $message = "Registration failed. Please try again.";
+    $messageType = "error";
 }
+
+$stmt->close();
+        }}}
+
 ?>
 
 
