@@ -12,7 +12,7 @@ if (!isset($_SESSION["user_id"])) {
     exit;
 }
 
-// Only accept form submissions
+// Only accept POST requests
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     header("Location: index.php#packages");
     exit;
@@ -24,16 +24,18 @@ $packageId = filter_input(INPUT_POST, "package_id", FILTER_VALIDATE_INT);
 
 $eventDate = trim($_POST["event_date"] ?? "");
 $eventLocation = trim($_POST["event_location"] ?? "");
+
 $guestCount = filter_input(
     INPUT_POST,
     "guest_count",
     FILTER_VALIDATE_INT
 );
+
 $specialRequest = trim($_POST["special_request"] ?? "");
 $paymentMethod = $_POST["payment_method"] ?? "";
 $transactionId = trim($_POST["transaction_id"] ?? "");
 
-// Validate required fields
+// Validate form information
 if (
     !$packageId ||
     $packageId < 1 ||
@@ -48,7 +50,7 @@ if (
     exit("Invalid information. Please go back and check the form.");
 }
 
-// Validate date format and prevent past dates
+// Validate event date
 $dateObject = DateTime::createFromFormat("!Y-m-d", $eventDate);
 
 if (
@@ -59,12 +61,12 @@ if (
     exit("Please select a valid event date.");
 }
 
-/// Verify that the selected package is active
+// 1. Verify selected package
 $packageStmt = $conn->prepare("
-    SELECT package_id, base_price
-    FROM packages
-    WHERE package_id = ?
-      AND is_active = 1
+    SELECT id, package_name, price
+    FROM decoration_packages
+    WHERE id = ?
+      AND status = 'active'
 ");
 
 $packageStmt->bind_param("i", $packageId);
@@ -77,8 +79,11 @@ if ($packageResult->num_rows !== 1) {
 }
 
 $package = $packageResult->fetch_assoc();
-$quotedTotal = (float)$package['base_price'];
-// Get or create customer profile
+
+$quotedTotal = (float) $package["price"];
+$packageStmt->close();
+
+// 2. Get or create customer profile
 $customerStmt = $conn->prepare("
     SELECT customer_id
     FROM customers
@@ -94,7 +99,7 @@ $customerResult = $customerStmt->get_result();
 if ($customerResult->num_rows === 1) {
 
     $customerData = $customerResult->fetch_assoc();
-    $customerId = (int)$customerData['customer_id'];
+    $customerId = (int) $customerData["customer_id"];
 
 } else {
 
@@ -104,39 +109,22 @@ if ($customerResult->num_rows === 1) {
     ");
 
     $createCustomer->bind_param("i", $userId);
+    $createCustomer->execute();
 
-    if (!$createCustomer->execute()) {
-        exit("Could not create customer profile.");
-    }
+    $customerId = (int) $conn->insert_id;
 
-    $customerId = (int)$conn->insert_id;
     $createCustomer->close();
 }
 
 $customerStmt->close();
-// Get an available venue
-$venueStmt = $conn->prepare("
-    SELECT venue_id FROM venues
-    ORDER BY venue_id ASC
-    LIMIT 1
-");
 
-$venueStmt->execute();
-$venueResult = $venueStmt->get_result();
-
-if ($venueResult->num_rows === 0) {
-    exit("No venue is available.");
-}
-
-$venue = $venueResult->fetch_assoc();
-$venueId = (int)$venue['venue_id'];
-$venueStmt->close();
-
-
+// 3. Set event time
 $startTime = "10:00:00";
 $endTime = "18:00:00";
 
-// Save booking
+// 4. Save booking
+// venue_id is NULL because customer provides their own event location
+
 $insertStmt = $conn->prepare("
     INSERT INTO bookings (
         customer_id,
@@ -153,14 +141,13 @@ $insertStmt = $conn->prepare("
         status,
         quoted_total
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
 ");
 
 $insertStmt->bind_param(
-    "iiississsssd",
+    "iisssissssd",
     $customerId,
     $packageId,
-    $venueId,
     $eventDate,
     $startTime,
     $endTime,
@@ -171,14 +158,20 @@ $insertStmt->bind_param(
     $transactionId,
     $quotedTotal
 );
+
+// Execute booking
 if ($insertStmt->execute()) {
+
     $bookingId = $conn->insert_id;
     ?>
+
     <!DOCTYPE html>
     <html lang="en">
+
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
         <title>Booking Submitted | DecorEase</title>
 
         <?php include 'includes/nav_style.php'; ?>
@@ -230,6 +223,7 @@ if ($insertStmt->execute()) {
     <?php include 'includes/navber.php'; ?>
 
     <div class="success-container">
+
         <h1>Booking Request Submitted!</h1>
 
         <p>
@@ -243,16 +237,28 @@ if ($insertStmt->execute()) {
         </p>
 
         <p>
+            Selected Package:
+            <strong>
+                <?php echo htmlspecialchars($package["package_name"]); ?>
+            </strong>
+        </p>
+
+        <p>
+            Package Price:
+            <strong>
+                ৳ <?php echo number_format($quotedTotal, 2); ?>
+            </strong>
+        </p>
+
+        <p>
             Your booking status is
             <strong>Pending</strong>.
         </p>
 
         <p>
-            Payment method:
+            Payment Method:
             <strong>
-                <?php
-                echo $paymentMethod === "bkash" ? "bKash" : "Nagad";
-                ?>
+                <?php echo $paymentMethod === "bkash" ? "bKash" : "Nagad"; ?>
             </strong>
         </p>
 
@@ -264,16 +270,20 @@ if ($insertStmt->execute()) {
         <a href="index.php" class="home-btn">
             Back to Home
         </a>
+
     </div>
 
     </body>
     </html>
+
     <?php
+
 } else {
+
     exit("Could not save your booking. Please try again.");
+
 }
 
 $insertStmt->close();
-$packageStmt->close();
 $conn->close();
 ?>

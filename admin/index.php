@@ -1,7 +1,7 @@
 
 <?php
 session_start();
-require_once "../db.php";
+include_once "../db.php";
 
 // Already logged-in admin
 if (isset($_SESSION['user_id']) && isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') {
@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } else {
 
         $stmt = $conn->prepare(
-            "SELECT user_id, full_name, email, password_hash, role, status
+            "SELECT user_id, full_name, email, password_hash, phone, role, status
              FROM users
              WHERE email = ?
              LIMIT 1"
