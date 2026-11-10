@@ -337,7 +337,7 @@ if (strpos($eventName, 'wedding') !== false) {
 
 } elseif (strpos($eventName, 'corporate') !== false) {
 
-    $image = 'images/com2.jpg';
+    $image = 'images/cr1.png';
 
 } elseif (strpos($eventName, 'anniversary') !== false) {
 

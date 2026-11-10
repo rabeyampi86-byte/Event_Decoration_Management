@@ -367,7 +367,7 @@ line-height:1.6;
 </article>
   <article class="service-card">
     <div class="service-visual">
-        <img src="images/com1.png" alt="Wedding Decoration">
+        <img src="images/cs1.png" alt="Wedding Decoration">
     </div>
     <div class="service-info">
         <h3>Customized Events</h3>
