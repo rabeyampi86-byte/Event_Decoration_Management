@@ -1,12 +1,76 @@
 <?php
-require_once __DIR__.'/layout-start.php';
-$counts=[];$q=$conn->query("SELECT status,COUNT(*) total FROM bookings GROUP BY status");if($q)while($r=$q->fetch_assoc())$counts[$r['status']]=(int)$r['total'];
-$payments=['pending'=>0,'completed'=>0,'failed'=>0,'refunded'=>0];$q=$conn->query("SELECT status,COUNT(*) total FROM payments GROUP BY status");if($q)while($r=$q->fetch_assoc())$payments[$r['status']]=(int)$r['total'];
-$rev=$conn->query("SELECT COALESCE(SUM(amount),0) total FROM payments WHERE status='completed'")->fetch_assoc()['total']??0;
-$monthly=array_fill(0,12,0);$q=$conn->query("SELECT MONTH(event_date) m,COUNT(*) total FROM bookings WHERE YEAR(event_date)=YEAR(CURDATE()) GROUP BY MONTH(event_date)");if($q)while($r=$q->fetch_assoc())$monthly[(int)$r['m']-1]=(int)$r['total'];
+include_once 'layout-start.php';
+$counts=[];
+$q=$conn->query("SELECT status,COUNT(*) total FROM bookings GROUP BY status");
+if($q)while($r=$q->fetch_assoc())$counts[$r['status']]=(int)$r['total'];
+$payments=['pending'=>0,'completed'=>0,'failed'=>0,'refunded'=>0];
+$q=$conn->query("SELECT status,COUNT(*) total FROM payments GROUP BY status");
+if($q)while($r=$q->fetch_assoc())$payments[$r['status']]=(int)$r['total'];
+$rev=$conn->query("SELECT COALESCE(SUM(amount),0) 
+total FROM payments WHERE status='completed'")->fetch_assoc()['total']??0;
+$monthly=array_fill(0,12,0);
+$q=$conn->query("SELECT MONTH(event_date) m,COUNT(*) total FROM bookings WHERE
+YEAR(event_date)=YEAR(CURDATE()) GROUP BY MONTH(event_date)");
+if($q)while($r=$q->fetch_assoc())$monthly[(int)$r['m']-1]=(int)$r['total'];
 ?>
-<section class="page-heading"><div><h1>Analytics</h1><p>Booking trends and payment overview.</p></div><span class="date-label"><?=date('Y')?></span></section>
-<section class="stats-grid"><div class="stat-card"><div class="stat-label">Completed Payments</div><div class="stat-value"><?=array_sum([$payments['completed']])?></div></div><div class="stat-card"><div class="stat-label">Paid Revenue</div><div class="stat-value"><?=money($rev)?></div></div><div class="stat-card"><div class="stat-label">Pending Payments</div><div class="stat-value"><?=$payments['pending']?></div></div><div class="stat-card"><div class="stat-label">Total Bookings</div><div class="stat-value"><?=array_sum($counts)?></div></div></section>
-<section class="charts-grid"><div class="panel"><div class="panel-heading"><h3>Monthly Bookings</h3></div><div class="chart-box"><canvas id="monthly"></canvas></div></div><div class="panel"><div class="panel-heading"><h3>Payment Status</h3></div><div class="chart-box"><canvas id="pay"></canvas></div></div></section>
-<script>new Chart(document.getElementById('monthly'),{type:'line',data:{labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],datasets:[{data:<?=json_encode($monthly)?>,label:'Bookings',borderColor:'#d51de8',backgroundColor:'#d51de833',fill:true,tension:.3}]},options:{responsive:true,maintainAspectRatio:false}});new Chart(document.getElementById('pay'),{type:'doughnut',data:{labels:<?=json_encode(array_keys($payments))?>,datasets:[{data:<?=json_encode(array_values($payments))?>,backgroundColor:['#f5bb56','#42d9a0','#ff6683','#8a55c9']}]},options:{responsive:true,maintainAspectRatio:false}});</script>
-<?php require __DIR__.'/layout-end.php'; ?>
+<section class="page-heading">
+    <div>
+        <h1>Analytics</h1>
+        <p>Booking trends and payment overview.</p>
+    </div>
+    <span class="date-label"><?=date('Y')?></span>
+</section>
+<section class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Completed Payments</div>
+        <div class="stat-value"><?=array_sum([$payments['completed']])?></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Paid Revenue</div>
+        <div class="stat-value"><?=money($rev)?></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Pending Payments</div>
+        <div class="stat-value"><?=$payments['pending']?></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Bookings</div>
+        <div class="stat-value"><?=array_sum($counts)?></div>
+    </div>
+</section>
+<section class="charts-grid">
+    <div class="panel">
+        <div class="panel-heading">
+            <h3>Monthly Bookings</h3>
+        </div>
+        <div class="chart-box">
+            <canvas id="monthly"></canvas>
+        </div>
+    </div>
+    <div class="panel">
+        <div class="panel-heading">
+            <h3>Payment Status</h3>
+        </div>
+        <div class="chart-box">
+            <canvas id="pay">
+            </canvas>
+        </div>
+    </div>
+</section>
+<script>
+new Chart(document.getElementById('monthly'),{
+    type:'line',data:{
+        labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],datasets:[{
+            data:<?=json_encode($monthly)?>,label:'Bookings',borderColor:'#d51de8',
+            backgroundColor:'#d51de833',fill:true,tension:.3
+        }]
+    },options:{
+        responsive:true,maintainAspectRatio:false
+    }
+});
+new Chart(document.getElementById('pay'),{type:'doughnut',data:
+{labels:<?=json_encode(array_keys($payments))?>,datasets:[{data:<?=json_encode(array_values($payments))?>
+,backgroundColor:['#f5bb56','#42d9a0','#ff6683','#8a55c9']}]},options:{responsive:true,
+maintainAspectRatio:false}});
+</script>
+<?php include 'layout-end.php'; ?>

@@ -4,7 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'db.php';
+require_once __DIR__ . '/db.php';
 
 // Only logged-in users can submit a booking
 if (!isset($_SESSION["user_id"])) {
@@ -81,6 +81,7 @@ if ($packageResult->num_rows !== 1) {
 $package = $packageResult->fetch_assoc();
 
 $quotedTotal = (float) $package["price"];
+
 $packageStmt->close();
 
 // 2. Get or create customer profile
@@ -122,47 +123,94 @@ $customerStmt->close();
 $startTime = "10:00:00";
 $endTime = "18:00:00";
 
-// 4. Save booking
-// venue_id is NULL because customer provides their own event location
+// 4. Save booking and payment together
+try {
 
-$insertStmt = $conn->prepare("
-    INSERT INTO bookings (
-        customer_id,
-        package_id,
-        venue_id,
-        event_date,
-        start_time,
-        end_time,
-        guest_count,
-        event_location,
-        special_request,
-        payment_method,
-        transaction_id,
-        status,
-        quoted_total
-    )
-    VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
-");
+    $conn->begin_transaction();
 
-$insertStmt->bind_param(
-    "iisssissssd",
-    $customerId,
-    $packageId,
-    $eventDate,
-    $startTime,
-    $endTime,
-    $guestCount,
-    $eventLocation,
-    $specialRequest,
-    $paymentMethod,
-    $transactionId,
-    $quotedTotal
-);
+    // Insert booking
+    $insertStmt = $conn->prepare("
+        INSERT INTO bookings (
+            customer_id,
+            package_id,
+            venue_id,
+            event_date,
+            start_time,
+            end_time,
+            guest_count,
+            event_location,
+            special_request,
+            payment_method,
+            transaction_id,
+            status,
+            quoted_total
+        )
+        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+    ");
 
-// Execute booking
-if ($insertStmt->execute()) {
+    $insertStmt->bind_param(
+        "iisssissssd",
+        $customerId,
+        $packageId,
+        $eventDate,
+        $startTime,
+        $endTime,
+        $guestCount,
+        $eventLocation,
+        $specialRequest,
+        $paymentMethod,
+        $transactionId,
+        $quotedTotal
+    );
 
-    $bookingId = $conn->insert_id;
+    $insertStmt->execute();
+
+    $bookingId = (int) $conn->insert_id;
+
+    $insertStmt->close();
+
+    // Insert payment record
+    // Payment remains pending until admin verifies it.
+    $paymentStmt = $conn->prepare("
+        INSERT INTO payments (
+            booking_id,
+            amount,
+            method,
+            transaction_reference,
+            status
+        )
+        VALUES (?, ?, ?, ?, 'pending')
+    ");
+
+    $paymentStmt->bind_param(
+        "idss",
+        $bookingId,
+        $quotedTotal,
+        $paymentMethod,
+        $transactionId
+    );
+
+    $paymentStmt->execute();
+
+    $paymentStmt->close();
+
+    // Save both records
+    $conn->commit();
+
+    $bookingSaved = true;
+
+} catch (Throwable $e) {
+
+    $conn->rollback();
+
+    error_log("Booking/Payment Error: " . $e->getMessage());
+
+    exit("Could not save your booking and payment record. Please try again.");
+
+}
+
+// 5. Show booking success page
+if ($bookingSaved) {
     ?>
 
     <!DOCTYPE html>
@@ -233,7 +281,7 @@ if ($insertStmt->execute()) {
 
         <p>
             Your Booking ID is:
-            <strong>#<?php echo (int) $bookingId; ?></strong>
+            <strong>#<?php echo $bookingId; ?></strong>
         </p>
 
         <p>
@@ -277,13 +325,7 @@ if ($insertStmt->execute()) {
     </html>
 
     <?php
-
-} else {
-
-    exit("Could not save your booking. Please try again.");
-
 }
 
-$insertStmt->close();
 $conn->close();
 ?>

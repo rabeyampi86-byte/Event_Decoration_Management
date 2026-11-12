@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 08, 2026 at 09:50 AM
+-- Generation Time: Nov 12, 2026 at 12:52 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -37,8 +37,23 @@ CREATE TABLE `bookings` (
   `end_time` time NOT NULL,
   `guest_count` int(10) UNSIGNED NOT NULL,
   `status` enum('pending','quoted','confirmed','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending',
-  `quoted_total` decimal(12,2) DEFAULT NULL
+  `quoted_total` decimal(12,2) DEFAULT NULL,
+  `payment_method` varchar(20) DEFAULT NULL,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `event_location` text DEFAULT NULL,
+  `special_request` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `bookings`
+--
+
+INSERT INTO `bookings` (`booking_id`, `customer_id`, `package_id`, `venue_id`, `event_date`, `start_time`, `end_time`, `guest_count`, `status`, `quoted_total`, `payment_method`, `transaction_id`, `event_location`, `special_request`) VALUES
+(3, 1, 1, NULL, '2026-10-21', '10:00:00', '18:00:00', 200, 'confirmed', 15000.00, 'bkash', '34554', 'Sukrabad, Dhaka-1207', 'Please finish the decoration in time.'),
+(4, 2, 3, NULL, '2026-11-30', '10:00:00', '18:00:00', 50, 'completed', 8000.00, 'bkash', '12560', 'Sukrabad, Dhaka-1207', '4 pound chocolate cake'),
+(5, 3, 4, NULL, '2026-08-18', '10:00:00', '18:00:00', 150, 'completed', 12000.00, 'bkash', '25890', 'Gazipur', 'Use marigold flower.'),
+(6, 4, 5, NULL, '2026-11-23', '10:00:00', '18:00:00', 50, 'in_progress', 10000.00, 'nagad', '15687', 'Mymenshing', ''),
+(7, 2, 6, NULL, '2026-11-20', '10:00:00', '18:00:00', 100, 'confirmed', 20000.00, 'bkash', '58960', 'Dhaka', 'Use golden lights.');
 
 -- --------------------------------------------------------
 
@@ -91,6 +106,16 @@ CREATE TABLE `customers` (
   `preferences` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `customers`
+--
+
+INSERT INTO `customers` (`customer_id`, `user_id`, `address`, `preferences`) VALUES
+(1, 5, NULL, NULL),
+(2, 1, NULL, NULL),
+(3, 6, NULL, NULL),
+(4, 4, NULL, NULL);
+
 -- --------------------------------------------------------
 
 --
@@ -98,7 +123,7 @@ CREATE TABLE `customers` (
 --
 
 CREATE TABLE `decoration_packages` (
-  `id` int(11) NOT NULL,
+  `id` int(10) UNSIGNED NOT NULL,
   `package_name` varchar(150) NOT NULL,
   `event_type_id` int(11) NOT NULL,
   `description` text DEFAULT NULL,
@@ -113,12 +138,30 @@ CREATE TABLE `decoration_packages` (
 --
 
 INSERT INTO `decoration_packages` (`id`, `package_name`, `event_type_id`, `description`, `price`, `image`, `status`, `created_at`) VALUES
-(1, 'Basic Wedding Package', 1, 'Simple and elegant wedding decoration', 15000.00, NULL, 'active', '2026-10-28 10:39:47'),
-(2, 'Premium Wedding Package', 1, 'Premium wedding stage and venue decoration', 35000.00, NULL, 'active', '2026-10-28 10:39:47'),
-(3, 'Birthday Celebration Package', 2, 'Colorful birthday party decoration', 8000.00, NULL, 'active', '2026-10-28 10:39:47'),
-(4, 'Holud Special Package', 3, 'Traditional Gaye Holud decoration', 12000.00, NULL, 'active', '2026-10-28 10:39:47'),
-(5, 'Akika Celebration Package', 4, 'Beautiful Akika event decoration', 10000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(1, 'Basic Wedding Package', 1, 'Simple and elegant wedding decoration', 25000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(2, 'Premium Wedding Package', 1, 'Premium wedding stage and venue decoration', 75000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(3, 'Birthday Celebration Package', 2, 'Colorful birthday party decoration', 15000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(4, 'Holud Special Package', 3, 'Traditional Gaye Holud decoration', 20000.00, NULL, 'active', '2026-10-28 10:39:47'),
+(5, 'Akika Celebration Package', 4, 'Beautiful Akika event decoration', 12000.00, NULL, 'active', '2026-10-28 10:39:47'),
 (6, 'Corporate Event Package', 5, 'Professional corporate event decoration', 20000.00, NULL, 'active', '2026-10-28 10:39:47');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `event_tasks`
+--
+
+CREATE TABLE `event_tasks` (
+  `task_id` int(10) UNSIGNED NOT NULL,
+  `booking_id` int(10) UNSIGNED NOT NULL,
+  `staff_id` int(10) UNSIGNED NOT NULL,
+  `task_title` varchar(200) NOT NULL,
+  `description` text DEFAULT NULL,
+  `progress_percent` tinyint(3) UNSIGNED NOT NULL DEFAULT 0,
+  `status` enum('pending','in_progress','completed') NOT NULL DEFAULT 'pending',
+  `due_date` date DEFAULT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ;
 
 -- --------------------------------------------------------
 
@@ -219,6 +262,15 @@ CREATE TABLE `payments` (
   `paid_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `payments`
+--
+
+INSERT INTO `payments` (`payment_id`, `booking_id`, `amount`, `method`, `transaction_reference`, `status`, `paid_at`) VALUES
+(1, 7, 20000.00, 'bkash', '58960', 'completed', '2026-11-12 12:03:14'),
+(2, 3, 25000.00, 'bkash', '34554', 'completed', '2026-11-09 12:31:50'),
+(3, 6, 12000.00, 'nagad', '15687', 'pending', '2026-11-10 12:34:11');
+
 -- --------------------------------------------------------
 
 --
@@ -259,7 +311,7 @@ CREATE TABLE `users` (
   `email` varchar(191) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
   `phone` varchar(25) DEFAULT NULL,
-  `role` enum('admin','customer') NOT NULL DEFAULT 'customer',
+  `role` enum('admin','customer','staff') NOT NULL DEFAULT 'customer',
   `status` enum('active','inactive','suspended') NOT NULL DEFAULT 'active'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -270,8 +322,10 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`user_id`, `full_name`, `email`, `password_hash`, `phone`, `role`, `status`) VALUES
 (1, 'Mst Rabeya', 'rabeya@gmail.com', '$2y$10$/jWcE7IbrpZg4uBdtNprbu3MNxWxy7ATVzslsTwo.0SBIgEpM64EW', '01861093392', 'admin', 'active'),
 (3, 'Admin', 'admin@gmail.com', '$2y$10$sMAch6EwAjgWhPRniWSmiuCiYR2eQtqYQcLywcqyHDRvlJfYAPcmG', '01236589428', 'admin', 'active'),
-(4, 'Kazi Modina', 'modina@gmail.com', '$2y$10$NM/aw4RH7iXvAGupBtISNe4ZmAsDbZuP57uaTCbsUBt32f1ef2YRW', '01536589428', 'customer', 'active'),
-(5, 'Rima Rani', 'rima@gmail.com', '$2y$10$0w6KiE.7c/89UY/MUi2hxeBWtxIMqFdKaWmtzeHB2.w3unWo4lTCa', '013256987452', 'customer', 'active');
+(4, 'Kazi Modina', 'modina@gmail.com', '$2y$10$GmjHFsVnGLqVuWOmBvE/b.ucvdNdSPdJbrdv2TDRpovHRkXmZi2UC', '01536589428', 'customer', 'active'),
+(5, 'Rima Rani', 'rima@gmail.com', '$2y$10$0w6KiE.7c/89UY/MUi2hxeBWtxIMqFdKaWmtzeHB2.w3unWo4lTCa', '013256987452', 'customer', 'active'),
+(6, 'Habiba Jannat', 'habiba@gmail.com', '$2y$10$cZixCU0Ih.yheikRsKDrMOh6.VjOKujCed9dPH2R2QRntpa.prOza', '0126549803', 'customer', 'active'),
+(7, 'Mim Akter', 'mimak@gmail.com', '$2y$10$Abb6JCOqHyPO6/BkSCnN9.tvrnuMVTEMhbBKOH2m5qOhe6Q4ap.Rq', '0189562310', 'customer', 'active');
 
 -- --------------------------------------------------------
 
@@ -286,6 +340,13 @@ CREATE TABLE `venues` (
   `capacity` int(10) UNSIGNED DEFAULT NULL,
   `contact_phone` varchar(25) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `venues`
+--
+
+INSERT INTO `venues` (`venue_id`, `name`, `address`, `capacity`, `contact_phone`) VALUES
+(1, 'Main Event Venue', 'Dhaka, Bangladesh', 1000, '01700000000');
 
 --
 -- Indexes for dumped tables
@@ -334,6 +395,14 @@ ALTER TABLE `customers`
 ALTER TABLE `decoration_packages`
   ADD PRIMARY KEY (`id`),
   ADD KEY `event_type_id` (`event_type_id`);
+
+--
+-- Indexes for table `event_tasks`
+--
+ALTER TABLE `event_tasks`
+  ADD PRIMARY KEY (`task_id`),
+  ADD KEY `fk_event_tasks_booking` (`booking_id`),
+  ADD KEY `fk_event_tasks_staff` (`staff_id`);
 
 --
 -- Indexes for table `event_types`
@@ -414,7 +483,7 @@ ALTER TABLE `venues`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `booking_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `booking_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `booking_addons`
@@ -432,13 +501,19 @@ ALTER TABLE `categories`
 -- AUTO_INCREMENT for table `customers`
 --
 ALTER TABLE `customers`
-  MODIFY `customer_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `customer_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `decoration_packages`
 --
 ALTER TABLE `decoration_packages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
+-- AUTO_INCREMENT for table `event_tasks`
+--
+ALTER TABLE `event_tasks`
+  MODIFY `task_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `event_types`
@@ -474,7 +549,7 @@ ALTER TABLE `package_items`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `payment_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `payment_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `reviews`
@@ -492,13 +567,13 @@ ALTER TABLE `staff`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `venues`
 --
 ALTER TABLE `venues`
-  MODIFY `venue_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `venue_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables
@@ -509,7 +584,7 @@ ALTER TABLE `venues`
 --
 ALTER TABLE `bookings`
   ADD CONSTRAINT `fk_bookings_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`customer_id`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `fk_bookings_package` FOREIGN KEY (`package_id`) REFERENCES `packages` (`package_id`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_bookings_decoration_package` FOREIGN KEY (`package_id`) REFERENCES `decoration_packages` (`id`) ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_bookings_venue` FOREIGN KEY (`venue_id`) REFERENCES `venues` (`venue_id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
@@ -530,6 +605,13 @@ ALTER TABLE `booking_staff`
 --
 ALTER TABLE `customers`
   ADD CONSTRAINT `fk_customers_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE CASCADE;
+
+--
+-- Constraints for table `event_tasks`
+--
+ALTER TABLE `event_tasks`
+  ADD CONSTRAINT `fk_event_tasks_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`booking_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_event_tasks_staff` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`staff_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `invoices`
