@@ -3,7 +3,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'db.php';
+include_once 'db.php';
 
 // Fetch packages from decoration_packages and event_types
 $packageSql = "

@@ -101,9 +101,9 @@ function eventImage($id) {
 
     <style>
         :root {
-            --plum: #57283c;
-            --deep: #351724;
-            --pink: #b84a72;
+            --plum: #6d314b;
+            --deep: #53263a;
+            --pink: #c0547b;
             --rose: #e7a2b8;
             --cream: #fffaf7;
             --light: #fff0f4;

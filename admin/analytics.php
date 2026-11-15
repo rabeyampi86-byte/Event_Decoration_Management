@@ -61,16 +61,30 @@ if($q)while($r=$q->fetch_assoc())$monthly[(int)$r['m']-1]=(int)$r['total'];
 new Chart(document.getElementById('monthly'),{
     type:'line',data:{
         labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],datasets:[{
-            data:<?=json_encode($monthly)?>,label:'Bookings',borderColor:'#d51de8',
-            backgroundColor:'#d51de833',fill:true,tension:.3
+            data:<?=json_encode($monthly)?>,
+            label:'Bookings',
+            borderColor:'#d51de8',
+            backgroundColor:'#d51de833',
+            fill:true,
+            tension:.3
         }]
     },options:{
-        responsive:true,maintainAspectRatio:false
+        responsive:true,
+        maintainAspectRatio:false
     }
 });
-new Chart(document.getElementById('pay'),{type:'doughnut',data:
-{labels:<?=json_encode(array_keys($payments))?>,datasets:[{data:<?=json_encode(array_values($payments))?>
-,backgroundColor:['#f5bb56','#42d9a0','#ff6683','#8a55c9']}]},options:{responsive:true,
-maintainAspectRatio:false}});
+new Chart(document.getElementById('pay'),{
+    type:'doughnut',data:{
+        labels:<?=json_encode(array_keys($payments))?>,
+        datasets:[{
+            data:<?=json_encode(array_values($payments))?>,
+            backgroundColor:['#f5bb56','#42d9a0','#ff6683','#8a55c9']
+        }]
+    },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false
+        }
+});
 </script>
 <?php include 'layout-end.php'; ?>

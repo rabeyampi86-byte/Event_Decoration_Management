@@ -4,7 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once __DIR__ . '/../db.php';
+include_once '../db.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
@@ -614,7 +614,7 @@ $nav = [
 
     <div class="dashboard-layout">
 
-        <?php include_once __DIR__ . '/leftside.php'; ?>
+        <?php include_once 'leftside.php'; ?>
 
         <main class="main-area">
 

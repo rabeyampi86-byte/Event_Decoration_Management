@@ -30,9 +30,11 @@ u.phone,u.status,c.address ORDER BY u.user_id DESC");
         <h1>Customers</h1>
         <p>Registered customer accounts and booking history.</p>
     </div>
-    <span class="date-label">
-        Total: <?=$rows?$rows->num_rows:0?>
-    </span>
+    <div class="button-container">
+        <button type="submit" class="new-btn">
+            <a href="new_customers.php">+ Add Customer </a>
+        </button>
+    </div>
 </section>
 <section class="panel table-panel">
     <div class="table-scroll">
@@ -78,9 +80,9 @@ u.phone,u.status,c.address ORDER BY u.user_id DESC");
         </table>
     </div>
 </section>
-<div class="button-container">
-    <button type="submit" class="new-btn"><a href="new_customers.php">+ New </a></button>
-</div>
+<span class="date-label">
+    Total: <?=$rows?$rows->num_rows:0?>
+</span>
 <script>
 document.getElementById('dashboardSearch')?.addEventListener('input',function(){
 let q=this.value.toLowerCase();

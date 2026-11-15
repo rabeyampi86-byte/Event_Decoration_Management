@@ -1,11 +1,9 @@
-
-
 <?php
 $message = "";
 $messageType = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    require_once 'db.php';
+    include_once 'db.php';
 
     $name = trim($_POST["name"] ?? "");
     $email = trim($_POST["email"] ?? "");
@@ -90,7 +88,7 @@ $stmt->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account | DecorEase</title>
 
-    <?php include __DIR__ . '/includes/nav_style.php'; ?>
+    <?php include 'includes/nav_style.php'; ?>
 
     <style>
         * {
@@ -123,7 +121,7 @@ $stmt->close();
 
         .register-box h1 {
             text-align: center;
-            color: #e76f51;
+            color: #b4416b;
             margin: 0 0 10px;
         }
 
@@ -154,7 +152,7 @@ $stmt->close();
 
         .form-group input:focus {
             outline: none;
-            border-color: #e76f51;
+            border-color: #b4416b;
         }
 
         .register-btn {
@@ -162,20 +160,20 @@ $stmt->close();
             padding: 13px;
             border: none;
             border-radius: 6px;
-            background: #e76f51;
+            background: #b4416b;
             color: white;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
         }
 
         .register-btn:hover {
-            background: #cf573b;
+            background: #b4416b;
         }
 
         .message {
             background: #fff0e9;
-            color: #9b432d;
+            color: #b4416b;
             padding: 10px;
             border-radius: 6px;
             margin-bottom: 15px;
@@ -189,7 +187,7 @@ $stmt->close();
         }
 
         .login-link a {
-            color: #e76f51;
+            color: #b4416b;
             text-decoration: none;
             font-weight: bold;
         }
@@ -302,8 +300,5 @@ $stmt->close();
 
         </section>
     </main>
-
-    <?php include 'includes/footer.php'; ?>
-
 </body>
 </html>

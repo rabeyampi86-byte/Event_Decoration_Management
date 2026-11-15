@@ -3,7 +3,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'db.php';
+include_once 'db.php';
 
 // Only logged-in customers can book
 if (!isset($_SESSION["user_id"])) {

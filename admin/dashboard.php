@@ -1,6 +1,6 @@
 
 <?php
-require_once __DIR__ . '/layout-start.php';
+include_once 'layout-start.php';
 
 /* =====================================
    1. Dashboard Statistics
@@ -585,11 +585,11 @@ new Chart(document.getElementById('statusChart'), {
             data: <?= json_encode(array_values($statuses)) ?>,
 
             backgroundColor: [
-                '#d51de8',
-                '#f5bb56',
-                '#42d9a0',
-                '#8a55c9',
-                '#4c9de0',
+                '#e86e1d',
+                '#5688f5',
+                '#3be719',
+                '#8f2bad',
+                '#03360e',
                 '#ff6683'
             ],
 
@@ -638,7 +638,7 @@ new Chart(document.getElementById('packageChart'), {
 
             data: <?= json_encode($pc) ?>,
 
-            backgroundColor: '#c34cdd',
+            background: 'linear-gradient(135deg, #c34cdd, #c66cff)',
 
             borderRadius: 5
 
@@ -706,4 +706,4 @@ if (dashboardSearch) {
 </script>
 
 
-<?php require_once __DIR__ . '/layout-end.php'; ?>
+<?php include_once 'layout-end.php'; ?>

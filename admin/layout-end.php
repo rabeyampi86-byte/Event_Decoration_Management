@@ -1,1 +1,7 @@
-<div class="footer-note">© <?=date('Y')?> DecorEase · Event Decoration Management System</div></main></div></body></html>
+<div class="footer-note">
+    © <?=date('Y')?> DecorEase · Event Decoration Management System
+</div>
+</main>
+</div>
+</body>
+</html>

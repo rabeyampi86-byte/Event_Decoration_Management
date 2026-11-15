@@ -1,6 +1,6 @@
 
 <?php
-require_once __DIR__ . '/layout-start.php';
+include_once 'layout-start.php';
 
 // Fixed Admin Information
 $admin = [
@@ -225,4 +225,4 @@ $admin = [
 
 </div>
 
-<?php require __DIR__ . '/layout-end.php'; ?>
+<?php include 'layout-end.php'; ?>

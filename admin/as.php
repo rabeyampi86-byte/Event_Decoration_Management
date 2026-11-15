@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__.'/layout-start.php';
+require_once 'layout-start.php';
 $stats=['customers'=>0,'bookings'=>0,'confirmed'=>0,'packages'=>0,'confirmed_value'=>0];
 $q=$conn->query("SELECT COUNT(*) total FROM users WHERE role='customer'"); if($q)$stats['customers']=(int)$q->fetch_assoc()['total'];
 $q=$conn->query("SELECT COUNT(*) total, COALESCE(SUM(status IN ('confirmed','in_progress','completed')),0) confirmed FROM bookings"); if($q){$r=$q->fetch_assoc();$stats['bookings']=(int)$r['total'];$stats['confirmed']=(int)$r['confirmed'];}
@@ -28,4 +28,4 @@ new Chart(document.getElementById('statusChart'),{type:'doughnut',data:{labels:<
 new Chart(document.getElementById('packageChart'),{type:'bar',data:{labels:<?=json_encode($pl,JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_HEX_AMP)?>,datasets:[{label:'Bookings',data:<?=json_encode($pc)?>,backgroundColor:'#c34cdd',borderRadius:5}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}});
 document.getElementById('dashboardSearch')?.addEventListener('input',function(){let q=this.value.toLowerCase();document.querySelectorAll('#bookingsTable tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')});
 </script>
-<?php require __DIR__.'/layout-end.php'; ?>
+<?php require 'layout-end.php'; ?>

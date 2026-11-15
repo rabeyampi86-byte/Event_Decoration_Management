@@ -21,8 +21,8 @@
         flex-shrink: 0;
         margin: 0;
         padding: 0;
-        color: #b84a72;
-        font-size: 25px;
+        color: #b4416b;
+        font-size: 32px;
         font-weight: bold;
         line-height: 1.5;
         text-decoration: none;
@@ -35,7 +35,7 @@
         flex-wrap: nowrap;
         align-items: center;
         justify-content: flex-end;
-        gap: 22px;
+        gap: 30px;
         margin: 0;
         padding: 0;
     }
@@ -46,7 +46,7 @@
         margin: 0;
         padding: 0;
         color: #333333;
-        font-size: 15px;
+        font-size: 20px;
         font-weight: normal;
         line-height: 1.5;
         text-decoration: none;
@@ -77,7 +77,7 @@
 }
 
 .site-header .main-nav a.login-btn:hover {
-    background-color: #913653;
+    background-color: #b84a72;
     color: #ffffff;
 }
 

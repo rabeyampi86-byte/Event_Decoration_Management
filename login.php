@@ -109,7 +109,7 @@ if (isset($_POST['submit'])) {
 
         .login-box h1 {
             text-align: center;
-            color: #e76f51;
+            color: #b4416b;
             margin: 0 0 10px;
         }
 
@@ -160,7 +160,7 @@ if (isset($_POST['submit'])) {
             padding: 13px;
             border: none;
             border-radius: 6px;
-            background: #e76f51;
+            background: #b4416b;
             color: white;
             font-size: 16px;
             font-weight: bold;
@@ -168,7 +168,7 @@ if (isset($_POST['submit'])) {
         }
 
         .login-btn:hover {
-            background: #cf573b;
+            background: #b4416b;
         }
 
         .message {
@@ -187,7 +187,7 @@ if (isset($_POST['submit'])) {
         }
 
         .register-link a {
-            color: #e76f51;
+            color: #b4416b;
             text-decoration: none;
             font-weight: bold;
         }
@@ -275,8 +275,5 @@ if (isset($_POST['submit'])) {
 
         </section>
     </main>
-
-    <?php include 'includes/footer.php'; ?>
-
 </body>
 </html>

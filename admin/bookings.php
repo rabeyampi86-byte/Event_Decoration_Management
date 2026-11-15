@@ -22,14 +22,34 @@ payment_status FROM bookings b JOIN customers c ON b.customer_id=c.customer_id J
 c.user_id=u.user_id LEFT JOIN packages p ON b.package_id=p.package_id LEFT JOIN venues v ON 
 b.venue_id=v.venue_id ORDER BY b.booking_id DESC");
 ?>
+<style>
+    .button-container{
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 15px;
+    }
+    .new-btn {
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    background: #16a34a;
+    color: white;
+}
+</style>
 <section class="page-heading">
     <div>
         <h1>Bookings Management</h1>
         <p>Review customer bookings and update their progress.</p>
     </div>
-    <span class="date-label">
-        Total: <?=$rows?$rows->num_rows:0?>
-    </span>
+    <div class="button-container">
+    <button type="submit" class="new-btn">
+        <a href="new_bookings.php">+ Add Booking</a>
+    </button>
+</div>
 </section>
 <?php if($msg):?>
 <div class="notice">
@@ -60,6 +80,52 @@ b.venue_id=v.venue_id ORDER BY b.booking_id DESC");
             <?php if($rows&&$rows->num_rows):while($r=$rows->fetch_assoc()):?>
                 <tr>
                     <td>#<?=$r['booking_id']?></td>
-                    <td><b><?=h($r['full_name'])?></b><span class="subtext"><?=h($r['email'])?><br><?=h($r['phone'])?></span></td><td><?=h($r['package_title']??'—')?><span class="subtext"><?=h($r['venue_name']??'—')?></span></td><td><?=h($r['event_date'])?><span class="subtext"><?=h($r['start_time'])?> – <?=h($r['end_time'])?></span></td><td><?=$r['guest_count']?></td><td><?=money($r['quoted_total'])?></td><td><?=h($r['payment_method']??'—')?><span class="subtext"><?=h($r['payment_status']??'')?></span></td><td><form method="post" class="btnrow"><input type="hidden" name="booking_id" value="<?=$r['booking_id']?>"><select class="form-control" name="status" style="width:auto;margin:0"><?php foreach(['pending','quoted','confirmed','in_progress','completed','cancelled'] as $s):?><option value="<?=$s?>" <?=$r['status']===$s?'selected':''?>><?=ucwords(str_replace('_',' ',$s))?></option><?php endforeach;?></select><button class="btn">Save</button></form></td></tr><?php endwhile;else:?><tr><td colspan="8" class="empty-row">No bookings found.</td></tr><?php endif;?></tbody></table></div></section>
-<script>document.getElementById('dashboardSearch')?.addEventListener('input',function(){let q=this.value.toLowerCase();document.querySelectorAll('#bookingsTable tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')});</script>
-<?php require __DIR__.'/layout-end.php'; ?>
+                    <td>
+                        <b><?=h($r['full_name'])?></b>
+                        <span class="subtext"><?=h($r['email'])?><br><?=h($r['phone'])?></span>
+                    </td>
+                    <td><?=h($r['package_title']??'—')?>
+                        <span class="subtext"><?=h($r['venue_name']??'—')?></span>
+                    </td>
+                    <td><?=h($r['event_date'])?>
+                        <span class="subtext"><?=h($r['start_time'])?> – <?=h($r['end_time'])?>
+                        </span>
+                    </td>
+                    <td><?=$r['guest_count']?></td>
+                    <td><?=money($r['quoted_total'])?></td>
+                    <td><?=h($r['payment_method']??'—')?>
+                        <span class="subtext"><?=h($r['payment_status']??'')?></span>
+                    </td>
+                    <td>
+                        <form method="post" class="btnrow">
+                            <input type="hidden" name="booking_id" value="<?=$r['booking_id']?>">
+                            <select class="form-control" name="status" style="width:auto;margin:0">
+                                <?php foreach(['pending','quoted','confirmed','in_progress','completed','cancelled'] as $s):?>
+                                <option value="<?=$s?>" <?=$r['status']===$s?'selected':''?>>
+                                    <?=ucwords(str_replace('_',' ',$s))?>
+                                </option><?php endforeach;?>
+                            </select>
+                            <button class="btn">Save</button>
+                        </form>
+                    </td>
+                </tr>
+                <?php endwhile;else:?>
+                <tr>
+                    <td colspan="8" class="empty-row">No bookings found.</td>
+                </tr>
+                <?php endif;?>
+            </tbody>
+        </table>
+    </div>
+</section>
+<span class="date-label">
+        Total: <?=$rows?$rows->num_rows:0?>
+    </span>
+<script>
+    document.getElementById('dashboardSearch')?.addEventListener('input',function(){
+        let q=this.value.toLowerCase();
+        document.querySelectorAll('#bookingsTable tbody tr').forEach(r=>r.style.display=
+        r.innerText.toLowerCase().includes(q)?'':'none')
+    });
+</script>
+<?php include 'layout-end.php'; ?>
