@@ -205,7 +205,8 @@ $notifications = $conn->query("
         </div>
 
         <div class="profile-dropdown">
-            <a href="../logout.php" class="logout-link">↪ Logout</a>
+            <a href="../logout.php" class="logout-link">Logout</a>
+            <a href="../index.php">Back</a>
         </div>
 
     </div>

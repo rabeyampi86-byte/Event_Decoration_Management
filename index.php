@@ -33,56 +33,51 @@ $events = [
         'name' => 'Wedding',
         'sub' => 'Elegant celebrations',
         'icon' => '💍',
-        'image' => 'photo-1519741497674-611481863552'
+        'image' => 'images/wd.jpg'
     ],
     [
         'name' => 'Engagement',
         'sub' => 'A beautiful beginning',
         'icon' => '💎',
-        'image' => 'photo-1519225421980-715cb0215aed'
+        'image' => 'images/en4.jpg'
     ],
     [
         'name' => 'Holud',
         'sub' => 'Colourful traditions',
         'icon' => '🌼',
-        'image' => 'photo-1464366400600-7168b8af9bc3'
+        'image' => 'images/h2.jpg'
     ],
     [
         'name' => 'Anniversary',
         'sub' => 'Celebrate togetherness',
         'icon' => '❤️',
-        'image' => 'photo-1511795409834-ef04bbd61622'
+        'image' => 'images/an2.jpg'
     ],
     [
         'name' => 'Birthday',
         'sub' => 'Make it memorable',
         'icon' => '🎂',
-        'image' => 'photo-1530103862676-de8c9debad1d'
+        'image' => 'images/h3.jpg'
     ],
     [
         'name' => 'Akika',
         'sub' => 'Welcome little blessings',
         'icon' => '🌸',
-        'image' => 'photo-1513151233558-d860c5398176'
+        'image' => 'images/ak1.jpg'
     ],
     [
         'name' => 'Corporate',
         'sub' => 'Professional events',
         'icon' => '🏢',
-        'image' => 'photo-1511578314322-379afb476865'
+        'image' => 'images/cor5.jpg'
     ],
     [
         'name' => 'Customized',
         'sub' => 'Your idea, our creativity',
         'icon' => '✨',
-        'image' => 'photo-1492684223066-81342ee5ff30'
+        'image' => 'images/cs3.jpg'
     ]
 ];
-
-function eventImage($id) {
-    return 'https://images.unsplash.com/' . $id
-        . '?auto=format&fit=crop&w=900&q=85';
-}
 ?>
 
 <!DOCTYPE html>
@@ -862,16 +857,11 @@ function eventImage($id) {
 
                 <?php foreach ($events as $event): ?>
 
-                    <a href="services.php" class="event-card">
+                    <a href="wedding_details.php" class="event-card">
 
-                        <img
-                            src="<?php echo htmlspecialchars(eventImage($event['image'])); ?>"
-                            alt="<?php echo htmlspecialchars($event['name']); ?> decoration"
-                            loading="lazy"
-                        >
-
+                        <img src="<?= htmlspecialchars($event['image']) ?>"
+                        alt="<?= htmlspecialchars($event['name']) ?>">
                         <div class="event-info">
-
                             <span class="event-icon">
                                 <?php echo $event['icon']; ?>
                             </span>
@@ -1016,7 +1006,7 @@ function eventImage($id) {
 
             <div class="about-image">
                 <img
-                    src="images/h2.jpg"
+                    src="images/mg.jpg"
                     alt="Elegant event decoration"
                     loading="lazy"
                 >

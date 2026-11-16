@@ -1,5 +1,5 @@
 <?php
-include_once '/layout-start.php';
+include_once 'layout-start.php';
 $msg='';
 if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['name'])){
     $name=trim($_POST['name']);

@@ -1,5 +1,9 @@
-
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+include_once 'db.php';
 $services = [
     [
         'title' => 'Wedding Decoration',
@@ -46,14 +50,16 @@ $services = [
     [
         'title' => 'Corporate Event',
         'subtitle' => 'Professional events',
-        'description' => 'Organize professional corporate events with stylish stage setups and well-planned decorations.',
+        'description' => 'Organize professional corporate events with stylish stage setups and well-planned 
+        decorations.',
         'image' => 'images/cr1.png',
         'link' => './corporate_details.php'
     ],
     [
         'title' => 'Customized Events',
         'subtitle' => 'Your idea, our creativity',
-        'description' => 'Have a unique event idea? We create customized decoration arrangements according to your requirements.',
+        'description' => 'Have a unique event idea? We create customized decoration arrangements according to your 
+        requirements.',
         'image' => 'images/cs3.jpg',
         'link' => './custom_details.php'
     ]
