@@ -60,25 +60,6 @@ if (!$packages) {
             line-height: 1.6;
         }
 
-        /* Page Header */
-
-        .page-header {
-            padding: 65px 7%;
-            text-align: center;
-            background: linear-gradient(90deg, #fff0f4, #fffaf7);
-        }
-
-        .page-header h1 {
-            margin-bottom: 12px;
-            color: #57283c;
-            font-size: 38px;
-        }
-
-        .page-header p {
-            color: #777777;
-            font-size: 16px;
-        }
-
         /* Packages Section */
 
         .packages-section {
@@ -270,20 +251,6 @@ if (!$packages) {
 
 
     <main>
-
-        <!-- Page Header -->
-
-        <section class="page-header">
-
-            <h1>Our Decoration Packages</h1>
-
-            <p>
-                Explore our decoration packages and choose
-                the perfect one for your special event.
-            </p>
-
-        </section>
-
 
         <!-- Packages Section -->
 

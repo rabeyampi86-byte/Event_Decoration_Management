@@ -158,7 +158,7 @@ function eventImage($id) {
                     rgba(57, 23, 41, .78) 45%,
                     rgba(57, 23, 41, .12) 100%
                 ),
-                url('https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=2000&q=90')
+                url('images/wed1.webp')
                 center/cover no-repeat;
         }
 
@@ -650,7 +650,7 @@ function eventImage($id) {
             color: white;
             background:
                 linear-gradient(rgba(49,19,35,.89), rgba(49,19,35,.91)),
-                url('https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1800&q=85')
+                url('images/an2.jpg')
                 center/cover;
         }
 
@@ -665,26 +665,6 @@ function eventImage($id) {
             margin-bottom: 28px;
         }
 
-        /* FOOTER */
-
-        .site-footer {
-            background: #27141e;
-            color: #e9dce2;
-            padding: 35px 7%;
-            text-align: center;
-        }
-
-        .footer-brand {
-            font-family: 'Playfair Display', serif;
-            font-size: 26px;
-            color: white;
-            margin-bottom: 8px;
-        }
-
-        .site-footer p {
-            font-size: 12px;
-            color: #cbb9c2;
-        }
 
         /* RESPONSIVE */
 
@@ -1036,7 +1016,7 @@ function eventImage($id) {
 
             <div class="about-image">
                 <img
-                    src="https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=1000&q=85"
+                    src="images/h2.jpg"
                     alt="Elegant event decoration"
                     loading="lazy"
                 >

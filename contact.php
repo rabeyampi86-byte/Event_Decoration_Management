@@ -153,13 +153,6 @@ body{
     background:#ffe5ee;
     color:#57283c;
 }
-.site-footer{
-    background:#2d1b24;
-    color:#eee;
-    padding:17px 7%;
-    text-align:center;
-    font-size:13px;
-}
 @media(max-width:700px){
     .contact-grid{
         grid-template-columns:1fr;
