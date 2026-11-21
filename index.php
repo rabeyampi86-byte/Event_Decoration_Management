@@ -6,26 +6,28 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once 'db.php';
 
-// Fetch active decoration packages
+/// Fetch active decoration packages
 $packageSql = "
     SELECT
         p.package_id AS id,
-        p.title AS package_name,
+        p.package_name,
         p.description,
+        p.short_description,
         p.base_price AS price,
-        c.name AS type_name
+        ec.name AS type_name
     FROM packages p
-    INNER JOIN categories c
-        ON p.category_id = c.category_id
-    WHERE p.is_active = 1
-    ORDER BY p.package_id DESC
+    INNER JOIN event_categories ec
+        ON p.category_id = ec.category_id
+    WHERE p.status = 'active'
+      AND ec.status = 'active'
+    ORDER BY p.is_featured DESC, p.package_id DESC
     LIMIT 6
 ";
 
 $packages = $conn->query($packageSql);
 
 if (!$packages) {
-    error_log("Package query error: " . $conn->error);
+    error_log('Package query error: ' . $conn->error);
 }
 
 $events = [
@@ -93,7 +95,6 @@ $events = [
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700;800&display=swap" rel="stylesheet">
-
     <style>
         :root {
             --plum: #6d314b;
@@ -965,10 +966,9 @@ $events = [
                                     </div>
 
                                     <a
-                                        href="booking.php?package_id=<?php echo (int)$package['id']; ?>"
+                                        href="package_details.php?id=<?php echo (int)$package['id']; ?>"
                                         class="book-btn"
-                                    >
-                                        Book Now →
+                                        > Book Now →
                                     </a>
 
                                 </div>

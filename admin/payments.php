@@ -1,556 +1,620 @@
 
 <?php
-include_once 'layout-start.php';
+require_once __DIR__ . '/../db.php';
 
-/* =====================================
-   CSRF Token
-===================================== */
-
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-$message = '';
-$messageType = '';
-
-/* =====================================
-   Update Payment Status
-===================================== */
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    $token = $_POST['csrf_token'] ?? '';
-
-    if (!hash_equals($_SESSION['csrf_token'], $token)) {
-
-        $message = "Invalid request. Please try again.";
-        $messageType = "error";
-
-    } else {
-
-        $paymentId = filter_input(
-            INPUT_POST,
-            'payment_id',
-            FILTER_VALIDATE_INT
-        );
-
-        $newStatus = $_POST['new_status'] ?? '';
-
-        if (
-            $paymentId &&
-            in_array($newStatus, ['completed', 'failed'], true)
-        ) {
-
-            $stmt = $conn->prepare("
-                UPDATE payments
-                SET
-                    status = ?,
-                    paid_at = CASE
-                        WHEN ? = 'completed' THEN NOW()
-                        ELSE NULL
-                    END
-                WHERE payment_id = ?
-                AND status = 'pending'
-            ");
-
-            $stmt->bind_param(
-                "ssi",
-                $newStatus,
-                $newStatus,
-                $paymentId
-            );
-
-            if ($stmt->execute()) {
-
-                if ($stmt->affected_rows > 0) {
-                    $message = $newStatus === 'completed'
-                        ? "Payment successfully marked as completed."
-                        : "Payment marked as failed.";
-
-                    $messageType = "success";
-                } else {
-                    $message = "Payment not found or already processed.";
-                    $messageType = "error";
-                }
-
-            } else {
-
-                $message = "Unable to update payment.";
-                $messageType = "error";
-            }
-
-            $stmt->close();
-
-        } else {
-
-            $message = "Invalid payment information.";
-            $messageType = "error";
-        }
-    }
+if (!isset($_SESSION['admin_id'])) {
+    header("Location: login.php");
+    exit;
 }
 
-/* =====================================
+/* =========================
    Payment Statistics
-===================================== */
+========================= */
 
-$paymentStats = [
+$stats = [
     'total' => 0,
-    'pending' => 0,
     'completed' => 0,
-    'failed' => 0,
-    'refunded' => 0
+    'pending' => 0,
+    'total_amount' => 0
 ];
 
 $result = $conn->query("
-    SELECT status, COUNT(*) AS total
+    SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END) AS total_amount
     FROM payments
-    GROUP BY status
 ");
 
 if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        if (isset($paymentStats[$row['status']])) {
-            $paymentStats[$row['status']] = (int)$row['total'];
-        }
-
-        $paymentStats['total'] += (int)$row['total'];
-    }
+    $stats = $result->fetch_assoc();
 }
 
-/* =====================================
-   Get Payment Records
-===================================== */
+/* =========================
+   Search and Filter
+========================= */
 
-$paymentsResult = $conn->query("
+$search = trim($_GET['search'] ?? '');
+$status = $_GET['status'] ?? '';
+
+$allowedStatus = ['pending', 'completed', 'failed', 'refunded'];
+
+$sql = "
     SELECT
-        p.payment_id,
-        p.booking_id,
-        p.amount,
-        p.method,
-        p.transaction_reference,
-        p.status,
-        p.paid_at,
-        u.full_name,
-        u.email,
-        b.event_date
-    FROM payments p
-    LEFT JOIN bookings b
-        ON p.booking_id = b.booking_id
-    LEFT JOIN customers c
-        ON b.customer_id = c.customer_id
-    LEFT JOIN users u
-        ON c.user_id = u.user_id
-    ORDER BY p.payment_id DESC
-");
+        payment_id,
+        booking_id,
+        amount,
+        method,
+        transaction_reference,
+        status,
+        paid_at,
+        created_at
+    FROM payments
+    WHERE 1=1
+";
+
+$params = [];
+$types = '';
+
+if ($search !== '') {
+    $sql .= "
+        AND (
+            CAST(payment_id AS CHAR) LIKE ?
+            OR CAST(booking_id AS CHAR) LIKE ?
+            OR transaction_reference LIKE ?
+        )
+    ";
+
+    $searchTerm = "%{$search}%";
+
+    $params[] = $searchTerm;
+    $params[] = $searchTerm;
+    $params[] = $searchTerm;
+
+    $types .= 'sss';
+}
+
+if (in_array($status, $allowedStatus, true)) {
+    $sql .= " AND status = ?";
+    $params[] = $status;
+    $types .= 's';
+}
+
+$sql .= " ORDER BY created_at DESC";
+
+$stmt = $conn->prepare($sql);
+
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
+
+$stmt->execute();
+$payments = $stmt->get_result();
 
 ?>
 
-<style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-.payment-page {
-    padding-bottom: 30px;
-}
+    <title>Payment Management | Admin Panel</title>
 
-/* Payment Statistics */
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-.payment-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
-    margin: 22px 0;
-}
+    <link rel="stylesheet" href="includes/css/admin.css">
 
-.payment-stat {
-    background: #17111f;
-    padding: 22px;
-    border-radius: 12px;
-    border: 1px solid #292929;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
-}
+    <style>
+        .payment-page {
+            padding: 25px 30px 35px;
+        }
 
-.payment-stat h3 {
-    font-size: 15px;
-    font-weight: 500;
-    color: #b8b8b8;
-    margin: 0 0 12px;
-}
+        .payment-page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
 
-.payment-stat h2 {
-    font-size: 25px;
-    font-weight: 600;
-    margin: 0;
-    color: #f6f8fa;
-}
+        .payment-page-header h2 {
+            color: #1e293b;
+            font-size: 23px;
+            margin-bottom: 5px;
+        }
 
-/* Payment Panel */
+        .payment-page-header p {
+            color: #64748b;
+            font-size: 14px;
+        }
 
-.payment-panel {
-    background: #17111f;
-    padding: 22px;
-    border-radius: 12px;
-    border: 1px solid #292929;
-    box-shadow: 0 3px 15px rgba(0,0,0,0.05);
-    margin-top: 20px;
-}
+        .payment-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 25px;
+        }
 
-.payment-panel h3 {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 20px;
-    color: #f6f8fa;
-}
+        .payment-summary-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-/* Alerts */
+        .payment-summary-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            background: #eff6ff;
+            color: #2563eb;
+        }
 
-.payment-alert {
-    padding: 13px 16px;
-    border-radius: 8px;
-    margin: 15px 0;
+        .payment-summary-card h3 {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 500;
+            margin-bottom: 7px;
+        }
+
+        .payment-summary-card strong {
+            color: #1e293b;
+            font-size: 21px;
+        }
+
+        .payment-management-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 22px;
+        }
+
+        .payment-management-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .payment-management-header h3 {
+            color: #1e293b;
+            font-size: 18px;
+        }
+
+        .payment-filter-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .payment-filter-form input,
+        .payment-filter-form select {
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            font-size: 13px;
+            color: #334155;
+            outline: none;
+        }
+
+        .payment-filter-form input:focus,
+        .payment-filter-form select:focus {
+            border-color: #2563eb;
+        }
+
+        .payment-filter-btn {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .payment-reset-btn {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 10px 14px;
+            border-radius: 7px;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .payment-table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 950px;
+        }
+
+        .payment-table th {
+            background: #f8fafc;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: left;
+            padding: 14px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .payment-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #475569;
+            font-size: 13px;
+        }
+
+        .payment-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .payment-id {
+            color: #2563eb;
+            font-weight: 700;
+        }
+
+        .payment-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: capitalize;
+        }
+
+        .payment-status.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .payment-status.completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .payment-status.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .payment-status.refunded {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .payment-actions {
+            display: flex;
+            gap: 7px;
+        }
+
+        .payment-action-btn {
+            width: 31px;
+            height: 31px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .payment-view-btn {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .payment-edit-btn {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .payment-delete-btn {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .payment-empty {
+            text-align: center;
+            padding: 35px !important;
+            color: #64748b !important;
+        }
+
+        @media (max-width: 1000px) {
+            .payment-summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 600px) {
+            .payment-page {
+                padding: 20px 15px;
+            }
+
+            .payment-summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .payment-filter-form {
+                width: 100%;
+            }
+
+            .payment-filter-form input {
+                width: 100%;
+            }
+        }
+        .payment-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 18px;
+    background: #2563eb;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 7px;
     font-size: 14px;
-}
-
-.payment-alert.success {
-    background: #12351f;
-    color: #86efac;
-}
-
-.payment-alert.error {
-    background: #351616;
-    color: #fca5a5;
-}
-
-/* Payment Table */
-
-.payment-table-wrapper {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.payment-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 950px;
-    font-size: 14px;
-}
-
-.payment-table th,
-.payment-table td {
-    padding: 14px 12px;
-    text-align: left;
-    border-bottom: 1px solid #292929;
-    font-size: 14px;
-    vertical-align: middle;
-}
-
-.payment-table th {
-    background: #17111f;
-    color: #d1d5db;
     font-weight: 600;
-    white-space: nowrap;
+    transition: 0.2s;
 }
 
-.payment-table td {
-    color: #e5e7eb;
+.payment-add-btn:hover {
+    background: #1d4ed8;
+    color: #fff;
 }
+    </style>
+</head>
 
-.payment-table td small {
-    display: inline-block;
-    margin-top: 4px;
-    font-size: 12px;
-    color: #9ca3af;
-}
+<body>
 
-.payment-table tr:hover {
-    background: #17111f;
-}
+<div class="admin-container">
 
-/* Payment Status */
+    <?php include 'includes/sidebar.php'; ?>
 
-.payment-status {
-    display: inline-block;
-    padding: 5px 11px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: capitalize;
-    white-space: nowrap;
-}
+    <main class="main-content">
 
-.status-pending {
-    background: #422f0c;
-    color: #fbbf24;
-}
+        <?php include 'includes/header.php'; ?>
 
-.status-completed {
-    background: #12351f;
-    color: #86efac;
-}
+        <section class="payment-page">
 
-.status-failed {
-    background: #351616;
-    color: #fca5a5;
-}
-
-.status-refunded {
-    background: #252044;
-    color: #c4b5fd;
-}
-
-/* Action Buttons */
-
-.payment-action {
-    display: flex;
-    gap: 7px;
-}
-
-.payment-btn {
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.btn-complete {
-    background: #16a34a;
-    color: white;
-}
-
-.btn-failed {
-    background: #dc2626;
-    color: white;
-}
-
-.payment-btn:hover {
-    opacity: 0.85;
-}
-
-.no-payment {
-    text-align: center;
-    padding: 35px;
-    color: #9ca3af;
-}
-
-/* Responsive */
-
-@media(max-width: 1000px) {
-    .payment-stats {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media(max-width: 550px) {
-    .payment-stats {
-        grid-template-columns: 1fr;
-    }
-
-    .payment-panel {
-        padding: 15px;
-    }
-}
-
-</style>
-
-<div class="payment-page">
-
-    <div class="page-heading">
-        <div>
-            <h2>Payment Records</h2>
-            <p>Manage and verify customer payments.</p>
-        </div>
+            <div class="payment-page-header">
+    <div>
+        <h2>Payment Management</h2>
+        <p>Manage and monitor all customer payments.</p>
     </div>
 
-    <?php if ($message): ?>
-        <div class="payment-alert <?= htmlspecialchars($messageType) ?>">
-            <?= htmlspecialchars($message) ?>
-        </div>
-    <?php endif; ?>
+    <a href="add_payment.php" class="payment-add-btn">
+        <i class="fas fa-plus"></i>
+        Add Payment
+    </a>
+</div>
 
-    <!-- Payment Statistics -->
+            <!-- Statistics -->
 
-    <div class="payment-stats">
+            <div class="payment-summary-grid">
 
-        <div class="payment-stat">
-            <h3>Total Payments</h3>
-            <h2><?= $paymentStats['total'] ?></h2>
-        </div>
+                <div class="payment-summary-card">
+                    <div class="payment-summary-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <div>
+                        <h3>Total Payments</h3>
+                        <strong><?php echo (int)$stats['total']; ?></strong>
+                    </div>
+                </div>
 
-        <div class="payment-stat">
-            <h3>Pending Payments</h3>
-            <h2><?= $paymentStats['pending'] ?></h2>
-        </div>
+                <div class="payment-summary-card">
+                    <div class="payment-summary-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div>
+                        <h3>Completed Payments</h3>
+                        <strong><?php echo (int)$stats['completed']; ?></strong>
+                    </div>
+                </div>
 
-        <div class="payment-stat">
-            <h3>Completed Payments</h3>
-            <h2><?= $paymentStats['completed'] ?></h2>
-        </div>
+                <div class="payment-summary-card">
+                    <div class="payment-summary-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <h3>Pending Payments</h3>
+                        <strong><?php echo (int)$stats['pending']; ?></strong>
+                    </div>
+                </div>
 
-        <div class="payment-stat">
-            <h3>Failed Payments</h3>
-            <h2><?= $paymentStats['failed'] ?></h2>
-        </div>
+                <div class="payment-summary-card">
+                    <div class="payment-summary-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div>
+                        <h3>Completed Amount</h3>
+                        <strong>
+                            ৳<?php echo number_format((float)$stats['total_amount'], 2); ?>
+                        </strong>
+                    </div>
+                </div>
 
-    </div>
+            </div>
 
-    <!-- Payment Records Table -->
+            <!-- Payment List -->
 
-    <div class="payment-panel">
+            <div class="payment-management-card">
 
-        <h3>All Payment Transactions</h3>
+                <div class="payment-management-header">
 
-        <div class="payment-table-wrapper">
+                    <h3>Payment Records</h3>
 
-            <table class="payment-table">
+                    <form method="GET" class="payment-filter-form">
 
-                <thead>
-                    <tr>
-                        <th>Payment ID</th>
-                        <th>Booking ID</th>
-                        <th>Customer</th>
-                        <th>Amount</th>
-                        <th>Method</th>
-                        <th>Transaction ID</th>
-                        <th>Event Date</th>
-                        <th>Status</th>
-                        <th>Paid At</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
+                        <input
+                            type="search"
+                            name="search"
+                            placeholder="Search payment, booking or reference..."
+                            value="<?php echo htmlspecialchars($search); ?>"
+                        >
 
-                <tbody>
+                        <select name="status">
+                            <option value="">All Status</option>
 
-                <?php if ($paymentsResult && $paymentsResult->num_rows > 0): ?>
+                            <?php foreach ($allowedStatus as $item): ?>
+                                <option value="<?php echo $item; ?>"
+                                    <?php echo $status === $item ? 'selected' : ''; ?>>
+                                    <?php echo ucfirst($item); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
 
-                    <?php while ($payment = $paymentsResult->fetch_assoc()): ?>
+                        <button type="submit" class="payment-filter-btn">
+                            <i class="fas fa-search"></i> Search
+                        </button>
 
-                        <tr>
+                        <a href="payments.php" class="payment-reset-btn">
+                            Reset
+                        </a>
 
-                            <td>#<?= (int)$payment['payment_id'] ?></td>
+                    </form>
 
-                            <td>#<?= (int)$payment['booking_id'] ?></td>
+                </div>
 
-                            <td>
-                                <?= htmlspecialchars($payment['full_name'] ?? 'Unknown') ?>
-                                <br>
-                                <small>
-                                    <?= htmlspecialchars($payment['email'] ?? '') ?>
-                                </small>
-                            </td>
+                <div class="payment-table-wrapper">
 
-                            <td>
-                                <strong><?= money($payment['amount']) ?></strong>
-                            </td>
+                    <table class="payment-table">
 
-                            <td>
-                                <?= htmlspecialchars(ucfirst($payment['method'])) ?>
-                            </td>
+                        <thead>
+                            <tr>
+                                <th>Payment ID</th>
+                                <th>Booking ID</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Transaction Reference</th>
+                                <th>Status</th>
+                                <th>Paid At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
 
-                            <td>
-                                <?= htmlspecialchars($payment['transaction_reference']) ?>
-                            </td>
+                        <tbody>
 
-                            <td>
-                                <?= $payment['event_date']
-                                    ? date('d M Y', strtotime($payment['event_date']))
-                                    : 'N/A' ?>
-                            </td>
+                        <?php if ($payments && $payments->num_rows > 0): ?>
 
-                            <td>
-                                <span class="payment-status status-<?= htmlspecialchars($payment['status']) ?>">
-                                    <?= htmlspecialchars($payment['status']) ?>
-                                </span>
-                            </td>
+                            <?php while ($payment = $payments->fetch_assoc()): ?>
 
-                            <td>
-                                <?= $payment['paid_at']
-                                    ? date('d M Y, h:i A', strtotime($payment['paid_at']))
-                                    : 'Not paid' ?>
-                            </td>
+                                <tr>
 
-                            <td>
+                                    <td class="payment-id">
+                                        #<?php echo (int)$payment['payment_id']; ?>
+                                    </td>
 
-                                <?php if ($payment['status'] === 'pending'): ?>
+                                    <td>
+                                        #<?php echo (int)$payment['booking_id']; ?>
+                                    </td>
 
-                                    <div class="payment-action">
+                                    <td>
+                                        ৳<?php echo number_format((float)$payment['amount'], 2); ?>
+                                    </td>
 
-                                        <form method="POST"
-                                              onsubmit="return confirm('Have you verified this transaction and received the payment?');">
+                                    <td>
+                                        <?php echo ucfirst(htmlspecialchars($payment['method'])); ?>
+                                    </td>
 
-                                            <input type="hidden"
-                                                   name="csrf_token"
-                                                   value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                    <td>
+                                        <?php echo htmlspecialchars($payment['transaction_reference'] ?? '-'); ?>
+                                    </td>
 
-                                            <input type="hidden"
-                                                   name="payment_id"
-                                                   value="<?= (int)$payment['payment_id'] ?>">
+                                    <td>
+                                        <span class="payment-status <?php echo htmlspecialchars($payment['status']); ?>">
+                                            <?php echo ucfirst(htmlspecialchars($payment['status'])); ?>
+                                        </span>
+                                    </td>
 
-                                            <input type="hidden"
-                                                   name="new_status"
-                                                   value="completed">
+                                    <td>
+                                        <?php
+                                        echo $payment['paid_at']
+                                            ? date('d M Y, h:i A', strtotime($payment['paid_at']))
+                                            : '-';
+                                        ?>
+                                    </td>
 
-                                            <button type="submit"
-                                                    class="payment-btn btn-complete">
-                                                Complete
-                                            </button>
+                                    <td>
+                                        <div class="payment-actions">
 
-                                        </form>
+                                            <a href="view_payment.php?payment_id=<?php echo (int)$payment['payment_id']; ?>"
+                                               class="payment-action-btn payment-view-btn"
+                                               title="View">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
 
-                                        <form method="POST"
-                                              onsubmit="return confirm('Are you sure you want to mark this payment as failed?');">
+                                            <a href="edit_payment.php?payment_id=<?php echo (int)$payment['payment_id']; ?>"
+                                               class="payment-action-btn payment-edit-btn"
+                                               title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
 
-                                            <input type="hidden"
-                                                   name="csrf_token"
-                                                   value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                            <a href="delete_payment.php?payment_id=<?php echo (int)$payment['payment_id']; ?>"
+                                               class="payment-action-btn payment-delete-btn"
+                                               title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
 
-                                            <input type="hidden"
-                                                   name="payment_id"
-                                                   value="<?= (int)$payment['payment_id'] ?>">
+                                        </div>
+                                    </td>
 
-                                            <input type="hidden"
-                                                   name="new_status"
-                                                   value="failed">
+                                </tr>
 
-                                            <button type="submit"
-                                                    class="payment-btn btn-failed">
-                                                Failed
-                                            </button>
+                            <?php endwhile; ?>
 
-                                        </form>
+                        <?php else: ?>
 
-                                    </div>
+                            <tr>
+                                <td colspan="8" class="payment-empty">
+                                    <i class="fas fa-receipt"></i>
+                                    No payment records found.
+                                </td>
+                            </tr>
 
-                                <?php else: ?>
+                        <?php endif; ?>
 
-                                    <span style="color:#94a3b8;">Processed</span>
+                        </tbody>
 
-                                <?php endif; ?>
+                    </table>
 
-                            </td>
+                </div>
 
-                        </tr>
+            </div>
 
-                    <?php endwhile; ?>
+        </section>
 
-                <?php else: ?>
-
-                    <tr>
-                        <td colspan="10" class="no-payment">
-                            No payment records found.
-                        </td>
-                    </tr>
-
-                <?php endif; ?>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </div>
+    </main>
 
 </div>
 
-<?php include 'layout-end.php'; ?>
+<?php
+$stmt->close();
+include 'includes/footer.php';
+?>
+
+</body>
+</html>

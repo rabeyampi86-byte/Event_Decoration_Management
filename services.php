@@ -1,307 +1,594 @@
+
 <?php
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-include_once 'db.php';
-$services = [
-    [
-        'title' => 'Wedding Decoration',
-        'subtitle' => 'Elegant celebrations',
-        'description' => 'Create your dream wedding with beautiful stage decoration, floral arrangements and elegant venue styling.',
-        'image' => 'images/wed7.png',
-        'link' => './wedding_details.php'
-    ],
-    [
-        'title' => 'Engagement Decoration',
-        'subtitle' => 'A beautiful beginning',
-        'description' => 'Celebrate your special beginning with a charming engagement stage and attractive decorations.',
-        'image' => 'images/en1.png',
-        'link' => 'engagement_details.php'
-    ],
-    [
-        'title' => 'Holud Decoration',
-        'subtitle' => 'Colourful traditions',
-        'description' => 'Make your holud ceremony colourful with traditional themes, flowers and vibrant decorative arrangements.',
-        'image' => 'images/h1.png',
-        'link' => 'holud_details.php'
-    ],
-    [
-        'title' => 'Anniversary Decoration',
-        'subtitle' => 'Celebrate togetherness',
-        'description' => 'Celebrate your memorable moments with romantic decorations and a beautiful event setup.',
-        'image' => 'images/an1.jpg',
-        'link' => './anniversary_details.php'
-    ],
-    [
-        'title' => 'Birthday Decoration',
-        'subtitle' => 'Make it memorable',
-        'description' => 'Enjoy a wonderful birthday celebration with creative themes, balloons and attractive decorations.',
-        'image' => 'images/b.jpg',
-        'link' => './birthday_details.php'
-    ],
-    [
-        'title' => 'Akika Decoration',
-        'subtitle' => 'Welcome little blessings',
-        'description' => 'Arrange a beautiful and memorable Akika celebration with elegant decorations for your family.',
-        'image' => 'images/ak.png',
-        'link' => './akika_details.php'
-    ],
-    [
-        'title' => 'Corporate Event',
-        'subtitle' => 'Professional events',
-        'description' => 'Organize professional corporate events with stylish stage setups and well-planned 
-        decorations.',
-        'image' => 'images/cr1.png',
-        'link' => './corporate_details.php'
-    ],
-    [
-        'title' => 'Customized Events',
-        'subtitle' => 'Your idea, our creativity',
-        'description' => 'Have a unique event idea? We create customized decoration arrangements according to your 
-        requirements.',
-        'image' => 'images/cs3.jpg',
-        'link' => './custom_details.php'
-    ]
-];
+require_once __DIR__ . '/db.php';
+
+/* =========================================
+   HTML ESCAPE FUNCTION
+========================================= */
+
+function decorEaseEscape($value) {
+    return htmlspecialchars(
+        (string)($value ?? ''),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
+
+/* =========================================
+   CART INITIALIZATION
+========================================= */
+
+if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart'])) {
+    $_SESSION['cart'] = [];
+}
+
+if (empty($_SESSION['cart_csrf'])) {
+    $_SESSION['cart_csrf'] = bin2hex(random_bytes(32));
+}
+
+/* =========================================
+   ADD PACKAGE TO CART
+========================================= */
+
+$cartSuccess = '';
+$cartError = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_package_id'])) {
+
+    $token = $_POST['csrf_token'] ?? '';
+
+    if (!hash_equals($_SESSION['cart_csrf'], $token)) {
+
+        $cartError = "Invalid request. Please try again.";
+
+    } else {
+
+        $packageId = (int) $_POST['add_package_id'];
+
+        if ($packageId > 0) {
+
+            $stmt = $conn->prepare("
+                SELECT package_id
+                FROM packages
+                WHERE package_id = ?
+                AND status = 'active'
+                LIMIT 1
+            ");
+
+            $stmt->bind_param("i", $packageId);
+            $stmt->execute();
+
+            $result = $stmt->get_result();
+
+            if ($result && $result->num_rows === 1) {
+
+                if (!in_array($packageId, $_SESSION['cart'], true)) {
+
+                    $_SESSION['cart'][] = $packageId;
+
+                    $cartSuccess = "Package added to your cart successfully.";
+
+                } else {
+
+                    $cartSuccess = "This package is already in your cart.";
+
+                }
+
+            } else {
+
+                $cartError = "This package is currently unavailable.";
+
+            }
+
+            $stmt->close();
+
+        } else {
+
+            $cartError = "Invalid package.";
+
+        }
+    }
+}
+
+/* =========================================
+   FETCH ACTIVE EVENT CATEGORIES
+========================================= */
+
+$eventCategories = [];
+
+$categorySql = "
+    SELECT
+        category_id,
+        name
+    FROM event_categories
+    WHERE status = 'active'
+    ORDER BY sort_order ASC, name ASC
+";
+
+$categoryResult = $conn->query($categorySql);
+
+if ($categoryResult) {
+    while ($category = $categoryResult->fetch_assoc()) {
+        $eventCategories[] = $category;
+    }
+}
+
+/* =========================================
+   FETCH ALL ACTIVE PACKAGES
+========================================= */
+
+$packages = [];
+
+$packageSql = "
+    SELECT
+        p.package_id,
+        p.category_id,
+        p.package_name,
+        p.short_description,
+        p.description AS package_description,
+        p.base_price,
+        p.guest_capacity,
+        p.is_featured,
+
+        ec.name AS category_name,
+
+        m.file_path AS image_path,
+        m.alt_text AS image_alt
+
+    FROM packages p
+
+    INNER JOIN event_categories ec
+        ON p.category_id = ec.category_id
+
+    LEFT JOIN media m
+        ON p.image_id = m.media_id
+
+    WHERE
+        p.status = 'active'
+        AND ec.status = 'active'
+
+    ORDER BY
+        p.is_featured DESC,
+        ec.sort_order ASC,
+        p.package_name ASC
+";
+
+$packageResult = $conn->query($packageSql);
+
+if ($packageResult) {
+    while ($package = $packageResult->fetch_assoc()) {
+        $packages[] = $package;
+    }
+}
+
+/* HEADER */
+include_once 'includes/nav_style.php';
+include_once 'includes/navber.php';
 ?>
+<link rel="stylesheet" href="assets/css/style.css">
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Our Services | DecorEase</title>
 
-    <?php include_once 'includes/nav_style.php'; ?>
+<main class="services-page">
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+    <!-- HERO SECTION -->
 
-        body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f8f8fc;
-            color: #292333;
-        }
-        .services-section {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 60px 20px 70px;
-        }
+    <section class="services-hero">
 
-        .section-heading {
-            text-align: center;
-            margin-bottom: 42px;
-        }
+        <div class="hero-content">
 
-        .section-heading h2 {
-            font-size: 32px;
-            margin: 0 0 12px;
-            color: #913653;
-        }
-
-        .section-heading p {
-            color: #77717f;
-            font-size: 15px;
-            line-height: 1.6;
-            margin: 0;
-        }
-
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 28px;
-        }
-
-        .service-card {
-            background: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 5px 22px rgba(42, 25, 55, 0.09);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .service-card:hover {
-            transform: translateY(-6px);
-            box-shadow: 0 12px 28px rgba(42, 25, 55, 0.15);
-        }
-
-        .service-image {
-            width: 100%;
-            height: 215px;
-            object-fit: cover;
-            display: block;
-        }
-
-        .service-content {
-            padding: 23px;
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        .service-content h3 {
-            font-size: 21px;
-            color: #6d3144;
-            margin: 0 0 8px;
-        }
-
-        .service-subtitle {
-            font-size: 13px;
-            color: #913653;
-            font-weight: 600;
-            margin-bottom: 13px;
-        }
-
-        .service-content p {
-            font-size: 14px;
-            line-height: 1.7;
-            color: #141012;
-            margin: 0 0 22px;
-            flex: 1;
-        }
-
-        .service-link {
-            display: inline-block;
-            width: fit-content;
-            text-decoration: none;
-            background: #913653;
-            color: #fff;
-            padding: 11px 21px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            transition: background 0.3s ease;
-        }
-
-        .service-link:hover {
-            background: #913653;
-            color: #fff;
-        }
-
-        .services-bottom {
-            text-align: center;
-            margin-top: 55px;
-            padding: 35px 20px;
-            background: #f0e9f5;
-            border-radius: 12px;
-        }
-
-        .services-bottom h2 {
-            color: #913653;
-            font-size: 25px;
-            margin: 0 0 12px;
-        }
-
-        .services-bottom p {
-            color: #716b78;
-            font-size: 14px;
-            margin-bottom: 22px;
-        }
-
-        .contact-btn {
-            display: inline-block;
-            text-decoration: none;
-            background: #913653;
-            color: #fff;
-            padding: 12px 25px;
-            border-radius: 6px;
-            font-weight: 600;
-        }
-
-        .contact-btn:hover {
-            background: #913653;
-            color: #fff;
-        }
-
-        @media (max-width: 900px) {
-            .services-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 600px) {
-            .services-hero h1 {
-                font-size: 30px;
-            }
-
-            .section-heading h2 {
-                font-size: 26px;
-            }
-
-            .services-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .services-section {
-                padding: 45px 16px;
-            }
-        }
-</style>
-</head>
-
-<body>
-<?php include_once 'includes/navber.php'; ?>
-<section class="services-section">
-
-    <div class="section-heading">
-        <h2>Explore Our Services</h2>
-        <p>Choose the perfect decoration service for your special occasion.</p>
-    </div>
-
-    <div class="services-grid">
-
-        <?php foreach ($services as $service): ?>
-
-            <div class="service-card">
-
-                <img
-                    class="service-image"
-                    src="<?= htmlspecialchars($service['image']) ?>"
-                    alt="<?= htmlspecialchars($service['title']) ?>"
-                    loading="lazy"
-                >
-
-                <div class="service-content">
-
-                    <h3><?= htmlspecialchars($service['title']) ?></h3>
-
-                    <div class="service-subtitle">
-                        <?= htmlspecialchars($service['subtitle']) ?>
-                    </div>
-
-                    <p>
-                        <?= htmlspecialchars($service['description']) ?>
-                    </p>
-
-                    <a
-                        class="service-link"
-                        href="<?= htmlspecialchars($service['link']) ?>"
-                    >
-                        Learn More
-                    </a>
-
-                </div>
+            <div class="hero-subtitle">
+                DecorEase Event Decoration
             </div>
 
-        <?php endforeach; ?>
+            <h1>
+                Make Every Moment
+                <span>Unforgettable</span>
+            </h1>
 
-    </div>
+            <p>
+                From elegant weddings to beautiful birthday celebrations,
+                we bring your special moments to life with creative decoration
+                and thoughtful planning.
+            </p>
 
-    <div class="services-bottom">
-        <h2>Have a Special Event in Mind?</h2>
-        <p>Let us help you plan and decorate your event just the way you want.</p>
-        <a href="contact.php" class="contact-btn">Contact Us</a>
-    </div>
+        </div>
 
-</section>
+    </section>
 
-<?php include_once 'includes/footer.php'; ?>
 
-</body>
-</html>
+    <!-- ALL SERVICES -->
+
+    <section class="services-container" id="all-services">
+
+        <div class="section-heading">
+
+            <div class="small-title">
+                What We Offer
+            </div>
+
+            <h2>
+                Our Decoration Packages
+            </h2>
+
+            <p>
+                Discover our carefully designed event decoration packages.
+                Choose the perfect arrangement for your special occasion.
+            </p>
+
+            <div class="heading-line"></div>
+
+        </div>
+
+
+        <!-- CATEGORY FILTER -->
+
+        <div class="category-filter">
+
+            <button
+                type="button"
+                class="category-filter-btn active"
+                data-filter="all"
+            >
+                All Events
+            </button>
+
+            <?php foreach ($eventCategories as $category): ?>
+
+                <button
+                    type="button"
+                    class="category-filter-btn"
+                    data-filter="<?php echo (int)$category['category_id']; ?>"
+                >
+                    <?php echo decorEaseEscape($category['name']); ?>
+                </button>
+
+            <?php endforeach; ?>
+
+        </div>
+
+
+        <!-- CART MESSAGE -->
+
+        <?php if ($cartSuccess): ?>
+
+            <div style="
+                background:#eaf7ee;
+                color:#237342;
+                padding:14px 18px;
+                border-radius:7px;
+                margin:20px 0;
+            ">
+
+                <i class="fas fa-check-circle"></i>
+
+                <?php echo decorEaseEscape($cartSuccess); ?>
+
+                <a href="cart.php" style="
+                    color:#237342;
+                    font-weight:700;
+                    margin-left:10px;
+                ">
+                    View Cart
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+
+            </div>
+
+        <?php endif; ?>
+
+
+        <?php if ($cartError): ?>
+
+            <div style="
+                background:#fff0f0;
+                color:#c62828;
+                padding:14px 18px;
+                border-radius:7px;
+                margin:20px 0;
+            ">
+
+                <i class="fas fa-exclamation-circle"></i>
+
+                <?php echo decorEaseEscape($cartError); ?>
+
+            </div>
+
+        <?php endif; ?>
+
+
+        <!-- PACKAGE GRID -->
+
+        <?php if (!empty($packages)): ?>
+
+            <div class="package-grid" id="packageGrid">
+
+                <?php foreach ($packages as $package): ?>
+
+                    <article
+                        class="package-card"
+                        data-category="<?php echo (int)$package['category_id']; ?>"
+                    >
+
+                        <!-- PACKAGE IMAGE -->
+
+                        <div class="package-image">
+
+                            <?php if (!empty($package['image_path'])): ?>
+
+                                <img
+                                    src="<?php echo decorEaseEscape($package['image_path']); ?>"
+                                    alt="<?php echo decorEaseEscape(
+                                        $package['image_alt']
+                                        ?: $package['package_name']
+                                    ); ?>"
+                                    loading="lazy"
+                                >
+
+                            <?php else: ?>
+
+                                <div class="image-placeholder">
+                                    <i class="fas fa-camera"></i>
+                                </div>
+
+                            <?php endif; ?>
+
+
+                            <?php if ((int)$package['is_featured'] === 1): ?>
+
+                                <span class="featured-label">
+                                    Featured
+                                </span>
+
+                            <?php endif; ?>
+
+                        </div>
+
+
+                        <!-- PACKAGE CONTENT -->
+
+                        <div class="package-content">
+
+                            <div class="package-category">
+                                <?php echo decorEaseEscape($package['category_name']); ?>
+                            </div>
+
+                            <h4>
+                                <?php echo decorEaseEscape($package['package_name']); ?>
+                            </h4>
+
+                            <p class="package-description">
+
+                                <?php
+                                echo decorEaseEscape(
+                                    $package['short_description']
+                                    ?: $package['package_description']
+                                );
+                                ?>
+
+                            </p>
+
+
+                            <!-- PRICE AND CAPACITY -->
+
+                            <div class="package-info">
+
+                                <div class="package-price">
+
+                                    <small>
+                                        Starting From
+                                    </small>
+
+                                    <strong>
+                                        ৳<?php echo number_format(
+                                            (float)$package['base_price'],
+                                            2
+                                        ); ?>
+                                    </strong>
+
+                                </div>
+
+
+                                <?php if (!empty($package['guest_capacity'])): ?>
+
+                                    <div class="package-guests">
+
+                                        <i class="fas fa-users"></i>
+
+                                        Up to
+                                        <?php echo decorEaseEscape(
+                                            $package['guest_capacity']
+                                        ); ?>
+                                        Guests
+
+                                    </div>
+
+                                <?php endif; ?>
+
+                            </div>
+
+
+                            <!-- ACTION BUTTONS -->
+
+                            <div class="package-buttons">
+
+                                <a
+                                    href="package_details.php?id=<?php echo (int)$package['package_id']; ?>"
+                                    class="details-button"
+                                >
+                                    View Details
+                                </a>
+
+                                <a
+                                    href="package_details.php?id=<?php echo (int)$package['package_id']; ?>#booking"
+                                    class="booking-button"
+                                >
+                                    Book Now
+                                </a>
+
+                            </div>
+
+
+                            <!-- ADD TO CART -->
+
+                            <form method="POST" style="margin-top:12px;">
+
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="<?php echo decorEaseEscape($_SESSION['cart_csrf']); ?>"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="add_package_id"
+                                    value="<?php echo (int)$package['package_id']; ?>"
+                                >
+
+                                <button
+                                    type="submit"
+                                    style="
+                                        width:100%;
+                                        padding:12px;
+                                        background:#392b2b;
+                                        color:#fff;
+                                        border:none;
+                                        border-radius:6px;
+                                        font-size:14px;
+                                        font-weight:600;
+                                        cursor:pointer;
+                                    "
+                                >
+                                    <i class="fas fa-shopping-cart"></i>
+                                    Add to Cart
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    </article>
+
+                <?php endforeach; ?>
+
+            </div>
+
+
+            <!-- NO FILTER RESULT MESSAGE -->
+
+            <div
+                class="empty-category"
+                id="noPackageMessage"
+                style="display:none;"
+            >
+                No packages are available in this category yet.
+            </div>
+
+
+        <?php else: ?>
+
+            <div class="empty-category">
+                No packages are available at the moment.
+                Please check back later.
+            </div>
+
+        <?php endif; ?>
+
+
+        <!-- CONTACT SECTION -->
+
+        <div class="services-cta">
+
+            <h2>
+                Have a Unique Event in Mind?
+            </h2>
+
+            <p>
+                Let us help you create a beautiful and memorable experience.
+                Contact our team to discuss your ideas and customize
+                your decoration arrangements.
+            </p>
+
+            <a href="contact.php" class="cta-button">
+                Contact Us
+            </a>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- CATEGORY FILTER JAVASCRIPT -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const filterButtons = document.querySelectorAll(
+        '.services-page .category-filter-btn'
+    );
+
+    const packageCards = document.querySelectorAll(
+        '.services-page .package-card'
+    );
+
+    const noPackageMessage = document.getElementById(
+        'noPackageMessage'
+    );
+
+    filterButtons.forEach(function (button) {
+
+        button.addEventListener('click', function () {
+
+            const selectedCategory = this.dataset.filter;
+
+            let visibleCount = 0;
+
+            filterButtons.forEach(function (item) {
+                item.classList.remove('active');
+            });
+
+            this.classList.add('active');
+
+            packageCards.forEach(function (card) {
+
+                const cardCategory = card.dataset.category;
+
+                const shouldShow =
+                    selectedCategory === 'all' ||
+                    selectedCategory === cardCategory;
+
+                if (shouldShow) {
+
+                    card.classList.remove('hidden');
+                    visibleCount++;
+
+                } else {
+
+                    card.classList.add('hidden');
+
+                }
+
+            });
+
+            if (noPackageMessage) {
+
+                noPackageMessage.style.display =
+                    visibleCount === 0 ? 'block' : 'none';
+
+            }
+
+        });
+
+    });
+
+});
+</script>
+
+
+<?php include_once __DIR__ . '/includes/footer.php'; ?>

@@ -1,131 +1,396 @@
 <?php
-include_once 'layout-start.php';
-$msg='';
-$err='';
-if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['booking_id'],$_POST['status'])){
-    $id=(int)$_POST['booking_id'];
-    $status=$_POST['status'];
-    $allowed=['pending','quoted','confirmed','in_progress','completed','cancelled'];
-    if(in_array($status,$allowed,true)){
-        $st=$conn->prepare("UPDATE bookings SET status=? WHERE booking_id=?");
-        $st->bind_param('si',$status,$id);
-        if($st->execute())$msg='Booking status updated.';
-        else $err='Could not update booking.';
-        $st->close();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+include_once '../db.php';
+
+$pageTitle = "Booking Management";
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$csrfToken = $_SESSION['csrf_token'];
+$deleteError = '';
+
+$allowedStatuses = [
+    'pending',
+    'quoted',
+    'confirmed',
+    'in_progress',
+    'completed',
+    'cancelled'
+];
+
+// Delete booking
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_booking'])) {
+
+    $token = $_POST['csrf_token'] ?? '';
+    $deleteId = (int)($_POST['booking_id'] ?? 0);
+
+    if (!hash_equals($csrfToken, $token)) {
+        $deleteError = "Invalid request. Please try again.";
+    } elseif ($deleteId < 1) {
+        $deleteError = "Invalid booking ID.";
+    } else {
+        $deleteStmt = $conn->prepare("
+            DELETE FROM bookings
+            WHERE booking_id = ?
+        ");
+
+        $deleteStmt->bind_param("i", $deleteId);
+
+        if ($deleteStmt->execute() && $deleteStmt->affected_rows > 0) {
+            header("Location: bookings.php?deleted=1");
+            exit;
+        } else {
+            $deleteError = "Unable to delete booking.";
+        }
     }
 }
-$rows=$conn->query("SELECT b.booking_id,b.event_date,b.start_time,b.end_time,b.guest_count,b.status,
-b.quoted_total,u.full_name,u.email,u.phone,p.title package_title,v.name venue_name,(SELECT method FROM 
-payments py WHERE py.booking_id=b.booking_id ORDER BY py.payment_id DESC LIMIT 1) payment_method,(SELECT 
-status FROM payments py WHERE py.booking_id=b.booking_id ORDER BY py.payment_id DESC LIMIT 1) 
-payment_status FROM bookings b JOIN customers c ON b.customer_id=c.customer_id JOIN users u ON 
-c.user_id=u.user_id LEFT JOIN packages p ON b.package_id=p.package_id LEFT JOIN venues v ON 
-b.venue_id=v.venue_id ORDER BY b.booking_id DESC");
+
+// Search and filter
+$search = trim($_GET['search'] ?? '');
+$status = trim($_GET['status'] ?? '');
+
+$sql = "
+    SELECT
+        b.booking_id,
+        b.package_name_snapshot,
+        b.package_price_snapshot,
+        b.event_date,
+        b.start_time,
+        b.guest_count,
+        b.status,
+        b.created_at,
+        u.full_name AS customer_name,
+        u.email AS customer_email,
+        u.phone AS customer_phone
+    FROM bookings b
+    LEFT JOIN customers c ON b.customer_id = c.customer_id
+    LEFT JOIN users u ON c.user_id = u.user_id
+    WHERE 1=1
+";
+
+$params = [];
+$types = "";
+
+if ($search !== '') {
+    $sql .= "
+        AND (
+            CAST(b.booking_id AS CHAR) LIKE ?
+            OR u.full_name LIKE ?
+            OR u.email LIKE ?
+            OR b.package_name_snapshot LIKE ?
+        )
+    ";
+
+    $keyword = "%{$search}%";
+
+    $params = [$keyword, $keyword, $keyword, $keyword];
+    $types .= "ssss";
+}
+
+if (in_array($status, $allowedStatuses, true)) {
+    $sql .= " AND b.status = ?";
+    $params[] = $status;
+    $types .= "s";
+}
+
+$sql .= " ORDER BY b.created_at DESC";
+
+$stmt = $conn->prepare($sql);
+
+if (!$stmt) {
+    die("Database error: " . $conn->error);
+}
+
+if ($params) {
+    $stmt->bind_param($types, ...$params);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Status counts
+$statusCounts = [];
+
+$countResult = $conn->query("
+    SELECT status, COUNT(*) AS total
+    FROM bookings
+    GROUP BY status
+");
+
+if ($countResult) {
+    while ($row = $countResult->fetch_assoc()) {
+        $statusCounts[$row['status']] = (int)$row['total'];
+    }
+}
+
+function bookingStatusClass($status) {
+    return match ($status) {
+        'pending' => 'status-pending',
+        'quoted' => 'status-quoted',
+        'confirmed' => 'status-confirmed',
+        'in_progress' => 'status-progress',
+        'completed' => 'status-completed',
+        'cancelled' => 'status-cancelled',
+        default => 'status-default'
+    };
+}
+
+function bookingStatusLabel($status) {
+    return ucwords(str_replace('_', ' ', $status));
+}
 ?>
-<style>
-    .button-container{
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 15px;
-    }
-    .new-btn {
-    border: none;
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    background: #16a34a;
-    color: white;
-}
-</style>
-<section class="page-heading">
-    <div>
-        <h1>Bookings Management</h1>
-        <p>Review customer bookings and update their progress.</p>
+
+<?php include_once 'includes/sidebar.php'; ?>
+<head>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<div class="main-content">
+
+<?php include_once 'includes/header.php'; ?>
+
+<main class="dashboard-content">
+
+    <div class="page-heading booking-heading">
+        <div>
+            <h2>Booking Management</h2>
+            <p>View and manage all customer bookings.</p>
+        </div>
+
+        <a href="booking_form.php" class="booking-add-btn">
+            <i class="fas fa-plus"></i> Add New Booking
+        </a>
     </div>
-    <div class="button-container">
-    <button type="submit" class="new-btn">
-        <a href="new_bookings.php">+ Add Booking</a>
-    </button>
-</div>
-</section>
-<?php if($msg):?>
-<div class="notice">
-    <?=h($msg)?>
-</div>
-<?php endif;?>
-<?php if($err):?>
-<div class="notice error">
-    <?=h($err)?>
-</div>
-<?php endif;?>
-<section class="panel table-panel">
-    <div class="table-scroll">
-        <table id="bookingsTable">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Customer</th>
-                    <th>Package / Venue</th>
-                    <th>Event date</th>
-                    <th>Guests</th>
-                    <th>Amount</th>
-                    <th>Payment</th>
-                    <th>Status / Update</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php if($rows&&$rows->num_rows):while($r=$rows->fetch_assoc()):?>
-                <tr>
-                    <td>#<?=$r['booking_id']?></td>
-                    <td>
-                        <b><?=h($r['full_name'])?></b>
-                        <span class="subtext"><?=h($r['email'])?><br><?=h($r['phone'])?></span>
-                    </td>
-                    <td><?=h($r['package_title']??'—')?>
-                        <span class="subtext"><?=h($r['venue_name']??'—')?></span>
-                    </td>
-                    <td><?=h($r['event_date'])?>
-                        <span class="subtext"><?=h($r['start_time'])?> – <?=h($r['end_time'])?>
-                        </span>
-                    </td>
-                    <td><?=$r['guest_count']?></td>
-                    <td><?=money($r['quoted_total'])?></td>
-                    <td><?=h($r['payment_method']??'—')?>
-                        <span class="subtext"><?=h($r['payment_status']??'')?></span>
-                    </td>
-                    <td>
-                        <form method="post" class="btnrow">
-                            <input type="hidden" name="booking_id" value="<?=$r['booking_id']?>">
-                            <select class="form-control" name="status" style="width:auto;margin:0">
-                                <?php foreach(['pending','quoted','confirmed','in_progress','completed','cancelled'] as $s):?>
-                                <option value="<?=$s?>" <?=$r['status']===$s?'selected':''?>>
-                                    <?=ucwords(str_replace('_',' ',$s))?>
-                                </option><?php endforeach;?>
-                            </select>
-                            <button class="btn">Save</button>
-                        </form>
-                    </td>
-                </tr>
-                <?php endwhile;else:?>
-                <tr>
-                    <td colspan="8" class="empty-row">No bookings found.</td>
-                </tr>
-                <?php endif;?>
-            </tbody>
-        </table>
+
+    <?php if (isset($_GET['deleted'])): ?>
+        <div class="details-alert success">
+            <i class="fas fa-check-circle"></i>
+            Booking deleted successfully.
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($_GET['saved'])): ?>
+        <div class="details-alert success">
+            <i class="fas fa-check-circle"></i>
+            Booking saved successfully.
+        </div>
+    <?php endif; ?>
+
+    <?php if ($deleteError !== ''): ?>
+        <div class="details-alert error">
+            <?php echo htmlspecialchars($deleteError); ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- Summary Cards -->
+    <div class="booking-summary">
+
+        <div class="booking-summary-card">
+            <div>
+                <span>Total Bookings</span>
+                <h3><?php echo array_sum($statusCounts); ?></h3>
+            </div>
+            <i class="fas fa-calendar-check"></i>
+        </div>
+
+        <div class="booking-summary-card">
+            <div>
+                <span>Pending</span>
+                <h3><?php echo $statusCounts['pending'] ?? 0; ?></h3>
+            </div>
+            <i class="fas fa-clock"></i>
+        </div>
+
+        <div class="booking-summary-card">
+            <div>
+                <span>Confirmed</span>
+                <h3><?php echo $statusCounts['confirmed'] ?? 0; ?></h3>
+            </div>
+            <i class="fas fa-check-circle"></i>
+        </div>
+
+        <div class="booking-summary-card">
+            <div>
+                <span>Completed</span>
+                <h3><?php echo $statusCounts['completed'] ?? 0; ?></h3>
+            </div>
+            <i class="fas fa-clipboard-check"></i>
+        </div>
+
     </div>
-</section>
-<span class="date-label">
-        Total: <?=$rows?$rows->num_rows:0?>
-    </span>
-<script>
-    document.getElementById('dashboardSearch')?.addEventListener('input',function(){
-        let q=this.value.toLowerCase();
-        document.querySelectorAll('#bookingsTable tbody tr').forEach(r=>r.style.display=
-        r.innerText.toLowerCase().includes(q)?'':'none')
-    });
-</script>
-<?php include 'layout-end.php'; ?>
+
+    <!-- Booking Table -->
+    <div class="booking-panel">
+
+        <div class="booking-panel-header">
+            <div>
+                <h3>All Bookings</h3>
+                <p><?php echo $result->num_rows; ?> booking(s) found</p>
+            </div>
+        </div>
+
+        <!-- Search and Filter -->
+        <form method="GET" class="booking-filter-form">
+
+            <div class="booking-search">
+                <i class="fas fa-search"></i>
+                <input
+                    type="text"
+                    name="search"
+                    placeholder="Search booking, customer or package..."
+                    value="<?php echo htmlspecialchars($search); ?>"
+                >
+            </div>
+
+            <select name="status">
+                <option value="">All Status</option>
+
+                <?php foreach ($allowedStatuses as $item): ?>
+                    <option value="<?php echo $item; ?>"
+                        <?php echo $status === $item ? 'selected' : ''; ?>>
+                        <?php echo bookingStatusLabel($item); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <button type="submit" class="booking-filter-btn">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+
+            <a href="bookings.php" class="booking-reset-btn">Reset</a>
+
+        </form>
+
+        <div class="booking-table-wrapper">
+
+            <table class="booking-table">
+
+                <thead>
+                    <tr>
+                        <th>Booking ID</th>
+                        <th>Customer</th>
+                        <th>Package</th>
+                        <th>Event Date</th>
+                        <th>Guests</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                <?php if ($result && $result->num_rows > 0): ?>
+
+                    <?php while ($booking = $result->fetch_assoc()): ?>
+
+                        <tr>
+
+                            <td>
+                                <strong>#<?php echo (int)$booking['booking_id']; ?></strong>
+                            </td>
+
+                            <td>
+                                <div class="booking-customer">
+                                    <strong>
+                                        <?php echo htmlspecialchars($booking['customer_name'] ?? 'Unknown'); ?>
+                                    </strong>
+                                    <small>
+                                        <?php echo htmlspecialchars($booking['customer_email'] ?? ''); ?>
+                                    </small>
+                                </div>
+                            </td>
+
+                            <td>
+                                <?php echo htmlspecialchars($booking['package_name_snapshot'] ?? 'N/A'); ?>
+                            </td>
+
+                            <td>
+                                <?php
+                                echo $booking['event_date']
+                                    ? date('d M Y', strtotime($booking['event_date']))
+                                    : 'N/A';
+                                ?>
+                            </td>
+
+                            <td><?php echo (int)$booking['guest_count']; ?></td>
+
+                            <td>
+                                <strong>
+                                    ৳<?php echo number_format((float)$booking['package_price_snapshot'], 2); ?>
+                                </strong>
+                            </td>
+
+                            <td>
+                                <span class="booking-status <?php echo bookingStatusClass($booking['status']); ?>">
+                                    <?php echo bookingStatusLabel($booking['status']); ?>
+                                </span>
+                            </td>
+
+                            <td>
+                                <div class="booking-action-group">
+
+                                    <a href="booking_details.php?id=<?php echo (int)$booking['booking_id']; ?>"
+                                       class="booking-view-btn" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+
+                                    <a href="booking_form.php?id=<?php echo (int)$booking['booking_id']; ?>"
+                                       class="booking-edit-btn" title="Edit Booking">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+
+                                    <form method="POST"
+                                          class="booking-delete-form"
+                                          onsubmit="return confirm('Are you sure you want to delete this booking? This action cannot be undone.');">
+
+                                        <input type="hidden" name="csrf_token"
+                                               value="<?php echo htmlspecialchars($csrfToken); ?>">
+
+                                        <input type="hidden" name="booking_id"
+                                               value="<?php echo (int)$booking['booking_id']; ?>">
+
+                                        <button type="submit" name="delete_booking"
+                                                class="booking-delete-btn" title="Delete Booking">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+
+                                    </form>
+
+                                </div>
+                            </td>
+
+                        </tr>
+
+                    <?php endwhile; ?>
+
+                <?php else: ?>
+
+                    <tr>
+                        <td colspan="8" class="booking-empty">
+                            <i class="fas fa-calendar-times"></i>
+                            <p>No bookings found.</p>
+                        </td>
+                    </tr>
+
+                <?php endif; ?>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</main>
+
+<?php include_once 'includes/footer.php'; ?>
+
+</div>
+</head>
