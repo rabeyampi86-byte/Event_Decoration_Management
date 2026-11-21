@@ -262,8 +262,6 @@ if (isset($conn) && $conn instanceof mysqli && $adminId > 0) {
                     Logout
                 </a>
 
-                <a href="../../index.php">↩ Back</a>
-
             </div>
         </div>
 

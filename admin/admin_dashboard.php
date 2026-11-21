@@ -1,10 +1,12 @@
-
 <?php
-// =============================================
-// DecorEase Admin Dashboard
-// =============================================
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+session_start();
+
+if (
+    !isset($_SESSION['admin_id']) ||
+    !isset($_SESSION['admin_name'])
+) {
+    header("Location: index.php");
+    exit;
 }
 
 include_once '../db.php';
@@ -645,8 +647,7 @@ $pageTitle = 'Dashboard';
                                     <div class="progress-bar"
                                          style="
                                             width: <?php echo $percentage; ?>%;
-                                            background: <?php echo $statusColors[$key]; ?>;
-                                         ">
+                                            background: <?php echo $statusColors[$key]; ?>">
                                     </div>
 
                                 </div>

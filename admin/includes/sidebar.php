@@ -79,10 +79,15 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <span>Team Members</span>
 </a>
 
-            <a href="gallery.php" class="nav-link">
-                <i class="fas fa-images"></i>
-                <span>Gallery</span>
-            </a>
+            <a href="gallery_albums.php" class="nav-link">
+    <i class="fas fa-folder-open"></i>
+    <span>Gallery Albums</span>
+</a>
+
+<a href="gallery_images.php" class="nav-link">
+    <i class="fas fa-images"></i>
+    <span>Gallery Images</span>
+</a>
 
             <a href="testimonials.php" class="nav-link">
                 <i class="fas fa-comment-dots"></i>
@@ -199,7 +204,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-wallet"></i>
                 <span>Payments</span>
             </a>
-
+            <a href="payment-receipt.php" class="nav-link">
+                <i class="fas fa-file-invoice-dollar"></i>
+                <span>Payment Receipt</span>
+            </a>
             <a href="invoices.php" class="nav-link">
                 <i class="fas fa-file-invoice"></i>
                 <span>Invoices</span>
@@ -283,10 +291,30 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <div class="nav-section">
             <span class="nav-section-title">REPORTS & SYSTEM</span>
 
-            <a href="reports.php" class="nav-link">
-                <i class="fas fa-chart-line"></i>
-                <span>Reports & Analytics</span>
-            </a>
+    <a href="reports.php" class="nav-link">
+        <i class="fas fa-chart-line"></i>
+        <span>Business Overview</span>
+    </a>
+
+    <a href="booking-progress.php" class="nav-link">
+        <i class="fas fa-tasks"></i>
+        <span>Booking Progress</span>
+    </a>
+
+    <a href="package-performance.php" class="nav-link">
+        <i class="fas fa-box"></i>
+        <span>Package Performance</span>
+    </a>
+
+    <a href="income-reports.php" class="nav-link">
+        <i class="fas fa-wallet"></i>
+        <span>Income & Payments</span>
+    </a>
+
+    <a href="expense-profit.php" class="nav-link">
+        <i class="fas fa-calculator"></i>
+        <span>Expense & Profit</span>
+    </a>
 
             <a href="notifications.php" class="nav-link">
                 <i class="fas fa-bell"></i>

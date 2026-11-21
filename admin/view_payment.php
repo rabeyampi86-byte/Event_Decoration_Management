@@ -1,6 +1,6 @@
 
 <?php
-require_once __DIR__ . '/../db.php';
+include_once '../db.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -18,10 +18,20 @@ if (!$payment_id) {
     exit;
 }
 
+/* =====================================
+   Fetch Payment + Booking Information
+===================================== */
+
 $stmt = $conn->prepare("
-    SELECT *
-    FROM payments
-    WHERE payment_id = ?
+    SELECT
+        p.*,
+        b.status AS booking_status,
+        b.event_date,
+        b.package_name_snapshot
+    FROM payments p
+    LEFT JOIN bookings b
+        ON p.booking_id = b.booking_id
+    WHERE p.payment_id = ?
 ");
 
 $stmt->bind_param("i", $payment_id);
@@ -35,6 +45,15 @@ if (!$payment) {
     header("Location: payments.php?error=not_found");
     exit;
 }
+
+/* =====================================
+   Receipt Eligibility
+===================================== */
+
+$canPrintReceipt = (
+    $payment['status'] === 'completed' &&
+    $payment['booking_status'] === 'completed'
+);
 ?>
 
 <!DOCTYPE html>
@@ -42,10 +61,12 @@ if (!$payment) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>View Payment | Admin Panel</title>
 
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
     <link rel="stylesheet" href="includes/css/admin.css">
 
     <style>
@@ -133,6 +154,7 @@ if (!$payment) {
             display: flex;
             gap: 12px;
             margin-top: 25px;
+            flex-wrap: wrap;
         }
 
         .payment-view-actions a {
@@ -151,9 +173,28 @@ if (!$payment) {
             color: #fff;
         }
 
+        .payment-view-receipt {
+            background: #16a34a;
+            color: #fff;
+        }
+
+        .payment-view-receipt:hover {
+            background: #15803d;
+        }
+
         .payment-view-back {
             background: #f1f5f9;
             color: #475569;
+        }
+
+        .receipt-notice {
+            margin-top: 20px;
+            padding: 13px 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            color: #64748b;
+            font-size: 13px;
         }
 
         @media(max-width:650px) {
@@ -202,12 +243,16 @@ if (!$payment) {
 
                     <div class="payment-detail-item">
                         <label>Amount</label>
-                        <strong>৳<?php echo number_format((float)$payment['amount'], 2); ?></strong>
+                        <strong>
+                            ৳<?php echo number_format((float)$payment['amount'], 2); ?>
+                        </strong>
                     </div>
 
                     <div class="payment-detail-item">
                         <label>Payment Method</label>
-                        <strong><?php echo ucfirst(htmlspecialchars($payment['method'])); ?></strong>
+                        <strong>
+                            <?php echo ucfirst(htmlspecialchars($payment['method'])); ?>
+                        </strong>
                     </div>
 
                     <div class="payment-detail-item">
@@ -223,6 +268,31 @@ if (!$payment) {
                             <span class="payment-view-status <?php echo htmlspecialchars($payment['status']); ?>">
                                 <?php echo ucfirst(htmlspecialchars($payment['status'])); ?>
                             </span>
+                        </strong>
+                    </div>
+
+                    <div class="payment-detail-item">
+                        <label>Booking Status</label>
+                        <strong>
+                            <?php echo htmlspecialchars(ucfirst($payment['booking_status'] ?? 'Unknown')); ?>
+                        </strong>
+                    </div>
+
+                    <div class="payment-detail-item">
+                        <label>Event Date</label>
+                        <strong>
+                            <?php
+                            echo !empty($payment['event_date'])
+                                ? date('d M Y', strtotime($payment['event_date']))
+                                : 'Not available';
+                            ?>
+                        </strong>
+                    </div>
+
+                    <div class="payment-detail-item">
+                        <label>Package</label>
+                        <strong>
+                            <?php echo htmlspecialchars($payment['package_name_snapshot'] ?? '-'); ?>
                         </strong>
                     </div>
 
@@ -250,14 +320,37 @@ if (!$payment) {
 
                     <a href="edit_payment.php?payment_id=<?php echo (int)$payment_id; ?>"
                        class="payment-view-edit">
-                        <i class="fas fa-edit"></i> Edit Payment
+                        <i class="fas fa-edit"></i>
+                        Edit Payment
                     </a>
 
+                    <?php if ($canPrintReceipt): ?>
+
+                        <a href="print-payment-receipt.php?payment_id=<?php echo (int)$payment_id; ?>"
+                           class="payment-view-receipt">
+                            <i class="fas fa-file-pdf"></i>
+                            Print Payment Receipt
+                        </a>
+
+                    <?php endif; ?>
+
                     <a href="payments.php" class="payment-view-back">
-                        <i class="fas fa-arrow-left"></i> Back
+                        <i class="fas fa-arrow-left"></i>
+                        Back
                     </a>
 
                 </div>
+
+                <?php if (!$canPrintReceipt): ?>
+
+                    <div class="receipt-notice">
+                        <i class="fas fa-info-circle"></i>
+
+                        Receipt will be available after both Payment and Booking
+                        statuses become Completed.
+                    </div>
+
+                <?php endif; ?>
 
             </div>
 

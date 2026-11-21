@@ -158,6 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+          <?php include_once 'includes/nav_style.php'; ?>
 
     <style>
         * {
@@ -432,7 +433,7 @@ include 'includes/navber.php';
 
         <div class="register-link">
             Don't have an account?
-            <a href="registration.php">Create Account</a>
+            <a href="register.php">Create Account</a>
         </div>
 
         <div class="back-home">
