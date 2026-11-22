@@ -318,11 +318,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <span>Income & Payments</span>
     </a>
 
-    <a href="expense-profit.php" class="nav-link">
-        <i class="fas fa-calculator"></i>
-        <span>Expense & Profit</span>
-    </a>
-
             <a href="notifications.php" class="nav-link">
                 <i class="fas fa-bell"></i>
                 <span>Notifications</span>
