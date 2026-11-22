@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../db.php';
+include_once '../db.php';
 
 function bannerEscape($value) {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');

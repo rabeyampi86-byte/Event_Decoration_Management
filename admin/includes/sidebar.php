@@ -63,7 +63,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <i class="fas fa-photo-video"></i>
                     <span>Media Library</span>
                 </a>
-                <a href="site-settings.php">Site Settings</a>
+            
+                <a href="about.php">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>About Us</span>
+                </a>
+
             </div>
 
             <a href="team_members.php"

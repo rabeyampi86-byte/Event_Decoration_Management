@@ -416,19 +416,16 @@ include_once 'includes/navber.php';
 
                             <div class="package-buttons">
 
-                                <a
-                                    href="package_details.php?id=<?php echo (int)$package['package_id']; ?>"
-                                    class="details-button"
-                                >
-                                    View Details
-                                </a>
+                                <a href="package_details.php?id=<?php echo (int)$package['package_id']; ?>" class="details-button">
+    View Details
+</a>
 
-                                <a
-                                    href="package_details.php?id=<?php echo (int)$package['package_id']; ?>#booking"
-                                    class="booking-button"
-                                >
-                                    Book Now
-                                </a>
+                               <a
+    href="booking.php?package_id=<?php echo (int)$package['package_id']; ?>"
+    class="booking-button"
+>
+    Book Now
+</a>
 
                             </div>
 

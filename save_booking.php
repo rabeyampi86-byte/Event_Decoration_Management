@@ -4,129 +4,170 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-include_once '/db.php';
+require_once __DIR__ . '/db.php';
 
-// Only logged-in users can submit a booking
-if (!isset($_SESSION["user_id"])) {
+// Only logged-in customers can submit a booking
+if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
 
 // Only accept POST requests
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php#packages");
     exit;
 }
 
-$userId = (int) $_SESSION["user_id"];
+$userId = (int) $_SESSION['user_id'];
 
-$packageId = filter_input(INPUT_POST, "package_id", FILTER_VALIDATE_INT);
+// Get form information
+$packageId = filter_input(INPUT_POST, 'package_id', FILTER_VALIDATE_INT);
 
-$eventDate = trim($_POST["event_date"] ?? "");
-$eventLocation = trim($_POST["event_location"] ?? "");
+$eventDate = trim($_POST['event_date'] ?? '');
+$startTime = trim($_POST['start_time'] ?? '');
+$endTime = trim($_POST['end_time'] ?? '');
+$eventLocation = trim($_POST['event_location'] ?? '');
 
 $guestCount = filter_input(
     INPUT_POST,
-    "guest_count",
+    'guest_count',
     FILTER_VALIDATE_INT
 );
 
-$specialRequest = trim($_POST["special_request"] ?? "");
-$paymentMethod = $_POST["payment_method"] ?? "";
-$transactionId = trim($_POST["transaction_id"] ?? "");
+$specialRequest = trim($_POST['special_request'] ?? '');
+$paymentMethod = $_POST['payment_method'] ?? '';
+$transactionReference = trim($_POST['transaction_reference'] ?? '');
 
-// Validate form information
+// Validate required information
 if (
     !$packageId ||
     $packageId < 1 ||
-    $eventDate === "" ||
-    $eventLocation === "" ||
+    $eventDate === '' ||
+    $startTime === '' ||
+    $endTime === '' ||
+    $eventLocation === '' ||
     !$guestCount ||
     $guestCount < 1 ||
     $guestCount > 100000 ||
-    !in_array($paymentMethod, ["bkash", "nagad"], true) ||
-    $transactionId === ""
+    !in_array($paymentMethod, ['bkash', 'nagad', 'cash'], true) ||
+    strlen($transactionReference) > 191
 ) {
     exit("Invalid information. Please go back and check the form.");
 }
 
 // Validate event date
-$dateObject = DateTime::createFromFormat("!Y-m-d", $eventDate);
+$dateObject = DateTime::createFromFormat('!Y-m-d', $eventDate);
 
 if (
     !$dateObject ||
-    $dateObject->format("Y-m-d") !== $eventDate ||
-    $eventDate < date("Y-m-d")
+    $dateObject->format('Y-m-d') !== $eventDate ||
+    $eventDate < date('Y-m-d')
 ) {
     exit("Please select a valid event date.");
 }
 
-// 1. Verify selected package
+// Validate event times
+$startObject = DateTime::createFromFormat('!H:i', $startTime);
+$endObject = DateTime::createFromFormat('!H:i', $endTime);
+
+if (
+    !$startObject ||
+    !$endObject ||
+    $startObject->format('H:i') !== $startTime ||
+    $endObject->format('H:i') !== $endTime ||
+    $endTime <= $startTime
+) {
+    exit("Please select valid event start and end times.");
+}
+
+// Convert time to MySQL format
+$startTime .= ':00';
+$endTime .= ':00';
+
+// Get package information
 $packageStmt = $conn->prepare("
-    SELECT id, package_name, price
-    FROM decoration_packages
-    WHERE id = ?
-      AND status = 'active'
+    SELECT
+        p.package_id,
+        p.package_name,
+        p.base_price,
+        p.description,
+        p.short_description
+    FROM packages p
+    INNER JOIN event_categories ec
+        ON p.category_id = ec.category_id
+    WHERE p.package_id = ?
+      AND p.status = 'active'
+      AND ec.status = 'active'
+    LIMIT 1
 ");
+
+if (!$packageStmt) {
+    exit("Unable to verify the selected package.");
+}
 
 $packageStmt->bind_param("i", $packageId);
 $packageStmt->execute();
 
 $packageResult = $packageStmt->get_result();
-
-if ($packageResult->num_rows !== 1) {
-    exit("This package is unavailable. Please select another package.");
-}
-
 $package = $packageResult->fetch_assoc();
-
-$quotedTotal = (float) $package["price"];
 
 $packageStmt->close();
 
-// 2. Get or create customer profile
-$customerStmt = $conn->prepare("
-    SELECT customer_id
-    FROM customers
-    WHERE user_id = ?
-    LIMIT 1
-");
-
-$customerStmt->bind_param("i", $userId);
-$customerStmt->execute();
-
-$customerResult = $customerStmt->get_result();
-
-if ($customerResult->num_rows === 1) {
-
-    $customerData = $customerResult->fetch_assoc();
-    $customerId = (int) $customerData["customer_id"];
-
-} else {
-
-    $createCustomer = $conn->prepare("
-        INSERT INTO customers (user_id)
-        VALUES (?)
-    ");
-
-    $createCustomer->bind_param("i", $userId);
-    $createCustomer->execute();
-
-    $customerId = (int) $conn->insert_id;
-
-    $createCustomer->close();
+if (!$package) {
+    exit("This package is unavailable. Please select another package.");
 }
 
-$customerStmt->close();
+$quotedTotal = (float) $package['base_price'];
 
-// 3. Set event time
-$startTime = "10:00:00";
-$endTime = "18:00:00";
+$packageDescription = !empty($package['description'])
+    ? $package['description']
+    : ($package['short_description'] ?? null);
 
-// 4. Save booking and payment together
+// Empty transaction reference will be stored as NULL
+$transactionReference = $transactionReference !== ''
+    ? $transactionReference
+    : null;
+
 try {
 
+    // Start database transaction
     $conn->begin_transaction();
+
+    // Find existing customer profile
+    $customerStmt = $conn->prepare("
+        SELECT customer_id
+        FROM customers
+        WHERE user_id = ?
+        LIMIT 1
+    ");
+
+    $customerStmt->bind_param("i", $userId);
+    $customerStmt->execute();
+
+    $customerResult = $customerStmt->get_result();
+
+    if ($customerResult->num_rows === 1) {
+
+        $customerData = $customerResult->fetch_assoc();
+        $customerId = (int) $customerData['customer_id'];
+
+    } else {
+
+        // Create customer profile if it does not exist
+        $createCustomer = $conn->prepare("
+            INSERT INTO customers (user_id)
+            VALUES (?)
+        ");
+
+        $createCustomer->bind_param("i", $userId);
+        $createCustomer->execute();
+
+        $customerId = (int) $conn->insert_id;
+
+        $createCustomer->close();
+    }
+
+    $customerStmt->close();
 
     // Insert booking
     $insertStmt = $conn->prepare("
@@ -134,32 +175,38 @@ try {
             customer_id,
             package_id,
             venue_id,
+            package_name_snapshot,
+            package_price_snapshot,
+            package_description_snapshot,
             event_date,
             start_time,
             end_time,
             guest_count,
             event_location,
             special_request,
-            payment_method,
-            transaction_id,
-            status,
-            quoted_total
+            quoted_total,
+            status
         )
-        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+        VALUES (
+            ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending'
+        )
     ");
 
+    $packageName = $package['package_name'];
+
     $insertStmt->bind_param(
-        "iisssissssd",
+        "iisdssssissd",
         $customerId,
         $packageId,
+        $packageName,
+        $quotedTotal,
+        $packageDescription,
         $eventDate,
         $startTime,
         $endTime,
         $guestCount,
         $eventLocation,
         $specialRequest,
-        $paymentMethod,
-        $transactionId,
         $quotedTotal
     );
 
@@ -170,7 +217,6 @@ try {
     $insertStmt->close();
 
     // Insert payment record
-    // Payment remains pending until admin verifies it.
     $paymentStmt = $conn->prepare("
         INSERT INTO payments (
             booking_id,
@@ -187,17 +233,15 @@ try {
         $bookingId,
         $quotedTotal,
         $paymentMethod,
-        $transactionId
+        $transactionReference
     );
 
     $paymentStmt->execute();
 
     $paymentStmt->close();
 
-    // Save both records
+    // Save booking and payment together
     $conn->commit();
-
-    $bookingSaved = true;
 
 } catch (Throwable $e) {
 
@@ -209,123 +253,131 @@ try {
 
 }
 
-// 5. Show booking success page
-if ($bookingSaved) {
-    ?>
+// Booking successfully saved
+?>
 
-    <!DOCTYPE html>
-    <html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <title>Booking Submitted | DecorEase</title>
+    <title>Booking Submitted | DecorEase</title>
 
-        <?php include 'includes/nav_style.php'; ?>
+    <?php include 'includes/nav_style.php'; ?>
 
-        <style>
-            body {
-                margin: 0;
-                background-color: #fff0f4;
-                font-family: Arial, sans-serif;
-            }
+    <style>
+        body {
+            margin: 0;
+            background: #fffaf7;
+            font-family: 'DM Sans', sans-serif;
+            color: #45343b;
+        }
 
-            .success-container {
-                max-width: 600px;
-                margin: 60px auto;
-                padding: 35px;
-                background-color: #ffffff;
-                border-radius: 12px;
-                text-align: center;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            }
+        .success-container {
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 35px;
+            background: #ffffff;
+            border-radius: 14px;
+            text-align: center;
+            box-shadow: 0 5px 25px rgba(83, 38, 58, 0.10);
+        }
 
-            .success-container h1 {
-                color: #57283c;
-            }
+        .success-container h1 {
+            color: #53263a;
+            font-family: 'Playfair Display', serif;
+        }
 
-            .success-container p {
-                color: #555555;
-                line-height: 1.7;
-            }
+        .success-container p {
+            color: #66565d;
+            line-height: 1.8;
+        }
 
-            .home-btn {
-                display: inline-block;
-                margin-top: 15px;
-                padding: 12px 22px;
-                background-color: #b84a72;
-                color: #ffffff;
-                text-decoration: none;
-                border-radius: 5px;
-            }
+        .success-container strong {
+            color: #6d314b;
+        }
 
-            .home-btn:hover {
-                background-color: #913653;
-            }
-        </style>
-    </head>
+        .home-btn {
+            display: inline-block;
+            margin-top: 18px;
+            padding: 12px 25px;
+            background: #6d314b;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 7px;
+        }
 
-    <body>
+        .home-btn:hover {
+            background: #53263a;
+        }
+    </style>
+</head>
 
-    <?php include 'includes/navber.php'; ?>
+<body>
 
-    <div class="success-container">
+<?php include 'includes/navber.php'; ?>
 
-        <h1>Booking Request Submitted!</h1>
+<div class="success-container">
 
-        <p>
-            Thank you,
-            <?php echo htmlspecialchars($_SESSION["user_name"]); ?>.
-        </p>
+    <h1>Booking Request Submitted!</h1>
 
-        <p>
-            Your Booking ID is:
-            <strong>#<?php echo $bookingId; ?></strong>
-        </p>
+    <p>
+        Thank you,
+        <?= htmlspecialchars($_SESSION['user_name'] ?? 'Customer') ?>.
+    </p>
 
-        <p>
-            Selected Package:
-            <strong>
-                <?php echo htmlspecialchars($package["package_name"]); ?>
-            </strong>
-        </p>
+    <p>
+        Your Booking ID:
+        <strong>#<?= $bookingId ?></strong>
+    </p>
 
-        <p>
-            Package Price:
-            <strong>
-                ৳ <?php echo number_format($quotedTotal, 2); ?>
-            </strong>
-        </p>
+    <p>
+        Selected Package:
+        <strong>
+            <?= htmlspecialchars($packageName) ?>
+        </strong>
+    </p>
 
-        <p>
-            Your booking status is
-            <strong>Pending</strong>.
-        </p>
+    <p>
+        Event Date:
+        <strong><?= htmlspecialchars($eventDate) ?></strong>
+    </p>
 
-        <p>
-            Payment Method:
-            <strong>
-                <?php echo $paymentMethod === "bkash" ? "bKash" : "Nagad"; ?>
-            </strong>
-        </p>
+    <p>
+        Package Price:
+        <strong>
+            ৳ <?= number_format($quotedTotal, 2) ?>
+        </strong>
+    </p>
 
-        <p>
-            Your transaction details still need to be verified.
-            This page does not confirm that a payment was received.
-        </p>
+    <p>
+        Payment Method:
+        <strong>
+            <?= htmlspecialchars(ucfirst($paymentMethod)) ?>
+        </strong>
+    </p>
 
-        <a href="index.php" class="home-btn">
-            Back to Home
-        </a>
+    <p>
+        Booking Status:
+        <strong>Pending</strong>
+    </p>
 
-    </div>
+    <p>
+        Your booking request has been received.
+        Payment verification will be handled separately.
+    </p>
 
-    </body>
-    </html>
+    <a href="index.php" class="home-btn">
+        Back to Home
+    </a>
 
-    <?php
-}
+</div>
 
+</body>
+</html>
+
+<?php
 $conn->close();
 ?>

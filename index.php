@@ -1,23 +1,150 @@
-
 <?php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once 'db.php';
+require_once __DIR__ . '/db.php';
 
-/// Fetch active decoration packages
+/* =====================================
+   HERO BANNER
+===================================== */
+
+$hero = null;
+
+$heroQuery = $conn->query("
+    SELECT
+        b.banner_id,
+        b.title,
+        b.subtitle,
+        b.button_text,
+        b.button_link,
+        m.file_path,
+        m.alt_text
+    FROM banners b
+    LEFT JOIN media m
+        ON b.image_id = m.media_id
+    WHERE b.is_active = 1
+    ORDER BY b.sort_order ASC, b.banner_id DESC
+    LIMIT 1
+");
+
+if ($heroQuery) {
+    $hero = $heroQuery->fetch_assoc();
+} else {
+    error_log('Banner query error: ' . $conn->error);
+}
+
+// Fallback content if no active banner exists
+$heroTitle = !empty($hero['title'])
+    ? $hero['title']
+    : 'Beautiful Spaces. Unforgettable Moments.';
+
+$heroSubtitle = !empty($hero['subtitle'])
+    ? $hero['subtitle']
+    : 'From dream weddings to intimate family celebrations, we transform your special occasions into extraordinary experiences with elegant and creative decoration.';
+
+$heroImage = !empty($hero['file_path'])
+    ? $hero['file_path']
+    : 'images/wed1.webp';
+
+$heroButtonText = !empty($hero['button_text'])
+    ? $hero['button_text']
+    : 'Explore Our Packages';
+
+$heroButtonLink = !empty($hero['button_link'])
+    ? $hero['button_link']
+    : 'packages.php';
+
+
+/* =====================================
+   EVENT CATEGORIES
+===================================== */
+
+$events = [];
+
+$eventSql = "
+    SELECT
+        ec.category_id,
+        ec.name,
+        ec.slug,
+        ec.description,
+        m.file_path,
+        m.alt_text
+    FROM event_categories ec
+    LEFT JOIN media m
+        ON ec.image_id = m.media_id
+    WHERE ec.status = 'active'
+    ORDER BY ec.sort_order ASC, ec.category_id ASC
+";
+
+$eventResult = $conn->query($eventSql);
+
+if ($eventResult) {
+
+    // Fallback images for categories without an uploaded image
+    $fallbackImages = [
+        'wedding' => 'images/wd.jpg',
+        'engagement' => 'images/en4.jpg',
+        'holud' => 'images/h2.jpg',
+        'anniversary' => 'images/an2.jpg',
+        'birthday' => 'images/h3.jpg',
+        'akika' => 'images/ak1.jpg',
+        'corporate event' => 'images/cor5.jpg',
+        'custom event' => 'images/cs3.jpg'
+    ];
+
+    $eventIcons = [
+        'wedding' => '💍',
+        'engagement' => '💎',
+        'holud' => '🌼',
+        'anniversary' => '❤️',
+        'birthday' => '🎂',
+        'akika' => '🌸',
+        'corporate event' => '🏢',
+        'custom event' => '✨'
+    ];
+
+    while ($row = $eventResult->fetch_assoc()) {
+
+        $categoryName = strtolower(trim($row['name']));
+
+        $row['image'] = !empty($row['file_path'])
+            ? $row['file_path']
+            : ($fallbackImages[$categoryName] ?? 'images/wd.jpg');
+
+        $row['icon'] = $eventIcons[$categoryName] ?? '✨';
+
+        $row['sub'] = !empty($row['description'])
+            ? $row['description']
+            : 'Explore our creative decoration ideas';
+
+        $events[] = $row;
+    }
+
+} else {
+    error_log('Event category query error: ' . $conn->error);
+}
+
+
+/* =====================================
+   FEATURED PACKAGES
+===================================== */
+
 $packageSql = "
     SELECT
-        p.package_id AS id,
+        p.package_id,
         p.package_name,
         p.description,
         p.short_description,
-        p.base_price AS price,
-        ec.name AS type_name
+        p.base_price,
+        ec.name AS type_name,
+        m.file_path,
+        m.alt_text
     FROM packages p
     INNER JOIN event_categories ec
         ON p.category_id = ec.category_id
+    LEFT JOIN media m
+        ON p.image_id = m.media_id
     WHERE p.status = 'active'
       AND ec.status = 'active'
     ORDER BY p.is_featured DESC, p.package_id DESC
@@ -29,57 +156,47 @@ $packages = $conn->query($packageSql);
 if (!$packages) {
     error_log('Package query error: ' . $conn->error);
 }
+/* =====================================
+   About Us Section
+===================================== */
 
-$events = [
-    [
-        'name' => 'Wedding',
-        'sub' => 'Elegant celebrations',
-        'icon' => '💍',
-        'image' => 'images/wd.jpg'
-    ],
-    [
-        'name' => 'Engagement',
-        'sub' => 'A beautiful beginning',
-        'icon' => '💎',
-        'image' => 'images/en4.jpg'
-    ],
-    [
-        'name' => 'Holud',
-        'sub' => 'Colourful traditions',
-        'icon' => '🌼',
-        'image' => 'images/h2.jpg'
-    ],
-    [
-        'name' => 'Anniversary',
-        'sub' => 'Celebrate togetherness',
-        'icon' => '❤️',
-        'image' => 'images/an2.jpg'
-    ],
-    [
-        'name' => 'Birthday',
-        'sub' => 'Make it memorable',
-        'icon' => '🎂',
-        'image' => 'images/h3.jpg'
-    ],
-    [
-        'name' => 'Akika',
-        'sub' => 'Welcome little blessings',
-        'icon' => '🌸',
-        'image' => 'images/ak1.jpg'
-    ],
-    [
-        'name' => 'Corporate',
-        'sub' => 'Professional events',
-        'icon' => '🏢',
-        'image' => 'images/cor5.jpg'
-    ],
-    [
-        'name' => 'Customized',
-        'sub' => 'Your idea, our creativity',
-        'icon' => '✨',
-        'image' => 'images/cs3.jpg'
-    ]
-];
+$aboutSections = [];
+
+$aboutSql = "
+    SELECT
+        ps.section_key,
+        ps.section_title,
+        ps.heading,
+        ps.subheading,
+        ps.content,
+        ps.image_id,
+        ps.is_visible,
+        m.file_path
+    FROM pages p
+    INNER JOIN page_sections ps
+        ON p.page_id = ps.page_id
+    LEFT JOIN media m
+        ON ps.image_id = m.media_id
+    WHERE p.page_slug = 'about'
+    AND ps.is_visible = 1
+    ORDER BY ps.sort_order ASC
+";
+
+$aboutResult = $conn->query($aboutSql);
+
+if ($aboutResult) {
+    while ($row = $aboutResult->fetch_assoc()) {
+        $aboutSections[$row['section_key']] = $row;
+    }
+}
+
+$aboutIntro = $aboutSections['about_intro'] ?? null;
+$aboutMission = $aboutSections['mission'] ?? null;
+$aboutVision = $aboutSections['vision'] ?? null;
+
+$aboutImage = !empty($aboutIntro['file_path'])
+    ? $aboutIntro['file_path']
+    : 'images/mg.jpg';
 ?>
 
 <!DOCTYPE html>
@@ -766,6 +883,11 @@ $events = [
                 height: 270px;
             }
         }
+        .package-top img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
     </style>
 </head>
 
@@ -776,103 +898,112 @@ $events = [
 <main>
 
     <!-- HERO -->
-    <section class="hero" id="home">
-        <div class="hero-content">
+    <!-- HERO -->
+<section
+    class="hero"
+    id="home"
+    style="background-image:
+        linear-gradient(
+            90deg,
+            rgba(39, 16, 29, .92) 0%,
+            rgba(57, 23, 41, .78) 45%,
+            rgba(57, 23, 41, .12) 100%
+        ),
+        url('<?= htmlspecialchars($heroImage, ENT_QUOTES, 'UTF-8'); ?>');
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;"
+>
 
-            <span class="hero-label">
-                Creating Moments That Last Forever
-            </span>
+    <div class="hero-content">
 
-            <h1 class="serif">
-                Beautiful Spaces.<br>
-                <span>Unforgettable Moments.</span>
-            </h1>
+        <span class="hero-label">
+            Creating Moments That Last Forever
+        </span>
 
-            <p>
-                From dream weddings to intimate family celebrations,
-                we transform your special occasions into extraordinary
-                experiences with elegant and creative decoration.
-            </p>
+        <h1 class="serif">
+            <?= htmlspecialchars($heroTitle); ?>
+        </h1>
 
-            <div class="hero-buttons">
-                <a href="packages.php" class="btn-primary">
-                    Explore Our Packages &nbsp; →
-                </a>
+        <p>
+            <?= htmlspecialchars($heroSubtitle); ?>
+        </p>
 
-                <a href="contact.php" class="btn-outline">
-                    Plan Your Event
-                </a>
-            </div>
+        <div class="hero-buttons">
 
-            <div class="hero-note">
-                <span>✦ Elegant Event Styling</span>
-                <span>✦ Creative Decoration</span>
-                <span>✦ Customized Themes</span>
-            </div>
+            <a
+                href="<?= htmlspecialchars($heroButtonLink, ENT_QUOTES, 'UTF-8'); ?>"
+                class="btn-primary"
+            >
+                <?= htmlspecialchars($heroButtonText); ?> &nbsp; →
+            </a>
 
-        </div>
-    </section>
-
-
-    <!-- INTRO STRIP -->
-    <section class="intro-strip">
-        <div class="container intro-grid">
-
-            <div class="intro-item">
-                <strong>Thoughtful Designs</strong>
-                <small>Every detail has a purpose</small>
-            </div>
-
-            <div class="intro-item">
-                <strong>Personalized Themes</strong>
-                <small>Designed around your vision</small>
-            </div>
-
-            <div class="intro-item">
-                <strong>Special Occasions</strong>
-                <small>Beautiful setups for every celebration</small>
-            </div>
+            <a href="contact.php" class="btn-outline">
+                Plan Your Event
+            </a>
 
         </div>
-    </section>
+
+        <div class="hero-note">
+            <span>✦ Elegant Event Styling</span>
+            <span>✦ Creative Decoration</span>
+            <span>✦ Customized Themes</span>
+        </div>
+
+    </div>
+
+</section>
 
 
     <!-- EVENT CATEGORIES -->
-    <section class="section events-section" id="services">
+    <!-- EVENT CATEGORIES -->
+<section class="section events-section" id="services">
 
-        <div class="container">
+    <div class="container">
 
-            <div class="section-heading">
-                <span class="eyebrow">What We Create</span>
+        <div class="section-heading">
 
-                <h2>Every Celebration Deserves Something Beautiful</h2>
+            <span class="eyebrow">What We Create</span>
 
-                <p>
-                    Discover decoration ideas for every occasion.
-                    Choose your event and let us help you create
-                    a setting worth remembering.
-                </p>
-            </div>
+            <h2>Every Celebration Deserves Something Beautiful</h2>
 
-            <div class="event-grid">
+            <p>
+                Discover decoration ideas for every occasion.
+                Choose your event and let us help you create
+                a setting worth remembering.
+            </p>
+
+        </div>
+
+        <div class="event-grid">
+
+            <?php if (!empty($events)): ?>
 
                 <?php foreach ($events as $event): ?>
 
-                    <a href="wedding_details.php" class="event-card">
+                    <a
+                        href="packages.php?category=<?= urlencode($event['slug']); ?>"
+                        class="event-card"
+                    >
 
-                        <img src="<?= htmlspecialchars($event['image']) ?>"
-                        alt="<?= htmlspecialchars($event['name']) ?>">
+                        <img
+                            src="<?= htmlspecialchars($event['image'], ENT_QUOTES, 'UTF-8'); ?>"
+                            alt="<?= htmlspecialchars($event['name']); ?>"
+                            loading="lazy"
+                        >
+
                         <div class="event-info">
+
                             <span class="event-icon">
-                                <?php echo $event['icon']; ?>
+                                <?= $event['icon']; ?>
                             </span>
 
                             <h3>
-                                <?php echo htmlspecialchars($event['name']); ?>
+                                <?= htmlspecialchars($event['name']); ?>
                             </h3>
 
                             <p>
-                                <?php echo htmlspecialchars($event['sub']); ?>
+                                <?= htmlspecialchars($event['sub']); ?>
                             </p>
 
                         </div>
@@ -881,186 +1012,239 @@ $events = [
 
                 <?php endforeach; ?>
 
-            </div>
+            <?php else: ?>
+
+                <div class="empty-packages">
+                    <h3>No Event Categories Available</h3>
+                    <p>Please check back later.</p>
+                </div>
+
+            <?php endif; ?>
 
         </div>
-    </section>
+
+    </div>
+
+</section>
 
 
     <!-- FEATURED PACKAGES -->
-    <section class="section packages-section" id="packages">
+    <!-- FEATURED PACKAGES -->
+<section class="section packages-section" id="packages">
 
-        <div class="container">
+    <div class="container">
 
-            <div class="section-heading">
-                <span class="eyebrow">Our Collection</span>
+        <div class="section-heading">
 
-                <h2>Featured Decoration Packages</h2>
+            <span class="eyebrow">Our Collection</span>
 
-                <p>
-                    Explore our available decoration packages
-                    and find an option that matches your celebration.
-                </p>
-            </div>
+            <h2>Featured Decoration Packages</h2>
 
-            <div class="package-container">
+            <p>
+                Explore our available decoration packages
+                and find an option that matches your celebration.
+            </p>
 
-                <?php if ($packages && $packages->num_rows > 0): ?>
+        </div>
 
-                    <?php while ($package = $packages->fetch_assoc()): ?>
+        <div class="package-container">
 
-                        <?php
-                        $eventName = strtolower($package['type_name']);
-                        $icon = '✨';
+            <?php if ($packages && $packages->num_rows > 0): ?>
 
-                        if (strpos($eventName, 'wedding') !== false) {
-                            $icon = '💐';
-                        } elseif (strpos($eventName, 'birthday') !== false) {
-                            $icon = '🎂';
-                        } elseif (strpos($eventName, 'holud') !== false) {
-                            $icon = '🌼';
-                        } elseif (strpos($eventName, 'akika') !== false) {
-                            $icon = '🌸';
-                        } elseif (strpos($eventName, 'corporate') !== false) {
-                            $icon = '🏢';
-                        } elseif (strpos($eventName, 'engagement') !== false) {
-                            $icon = '💍';
-                        } elseif (strpos($eventName, 'anniversary') !== false) {
-                            $icon = '❤️';
-                        }
-                        ?>
+                <?php while ($package = $packages->fetch_assoc()): ?>
 
-                        <div class="package-card">
+                    <?php
+                    $eventName = strtolower($package['type_name']);
+                    $icon = '✨';
 
-                            <div class="package-top">
-                                <?php echo $icon; ?>
-                            </div>
+                    if (strpos($eventName, 'wedding') !== false) {
+                        $icon = '💐';
+                    } elseif (strpos($eventName, 'birthday') !== false) {
+                        $icon = '🎂';
+                    } elseif (strpos($eventName, 'holud') !== false) {
+                        $icon = '🌼';
+                    } elseif (strpos($eventName, 'akika') !== false) {
+                        $icon = '🌸';
+                    } elseif (strpos($eventName, 'corporate') !== false) {
+                        $icon = '🏢';
+                    } elseif (strpos($eventName, 'engagement') !== false) {
+                        $icon = '💍';
+                    } elseif (strpos($eventName, 'anniversary') !== false) {
+                        $icon = '❤️';
+                    }
+                    ?>
 
-                            <div class="package-details">
+                    <div class="package-card">
 
-                                <span class="package-category">
-                                    <?php echo htmlspecialchars($package['type_name']); ?>
-                                </span>
+                        <div class="package-top">
 
-                                <h3>
-                                    <?php echo htmlspecialchars($package['package_name']); ?>
-                                </h3>
+                            <?php if (!empty($package['file_path'])): ?>
 
-                                <p>
-                                    <?php
-                                    echo htmlspecialchars(
-                                        $package['description'] ?? ''
-                                    );
-                                    ?>
-                                </p>
+                                <img
+                                    src="<?= htmlspecialchars($package['file_path'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    alt="<?= htmlspecialchars($package['alt_text'] ?: $package['package_name']); ?>"
+                                    loading="lazy"
+                                >
 
-                                <div class="package-bottom">
+                            <?php else: ?>
 
-                                    <div class="price">
-                                        ৳<?php
-                                        echo number_format(
-                                            (float)$package['price'],
-                                            2
-                                        );
-                                        ?>
-                                    </div>
+                                <?= $icon; ?>
 
-                                    <a
-                                        href="package_details.php?id=<?php echo (int)$package['id']; ?>"
-                                        class="book-btn"
-                                        > Book Now →
-                                    </a>
+                            <?php endif; ?>
 
-                                </div>
-
-                            </div>
                         </div>
 
-                    <?php endwhile; ?>
+                        <div class="package-details">
 
-                <?php else: ?>
+                            <span class="package-category">
+                                <?= htmlspecialchars($package['type_name']); ?>
+                            </span>
 
-                    <div class="empty-packages">
-                        <h3>No Packages Available Yet</h3>
-                        <p>Please check back later for our decoration packages.</p>
+                            <h3>
+                                <?= htmlspecialchars($package['package_name']); ?>
+                            </h3>
+
+                            <p>
+                                <?= htmlspecialchars(
+                                    $package['short_description']
+                                    ?: $package['description']
+                                    ?: 'Explore this decoration package.'
+                                ); ?>
+                            </p>
+
+                            <div class="package-bottom">
+
+                                <div class="price">
+                                    ৳<?= number_format((float)$package['base_price'], 2); ?>
+                                </div>
+
+                                <a
+                                    href="package_details.php?id=<?= (int)$package['package_id']; ?>"
+                                    class="book-btn"
+                                >
+                                    Book Now →
+                                </a>
+
+                            </div>
+
+                        </div>
+
                     </div>
 
+                <?php endwhile; ?>
+
+            <?php else: ?>
+
+                <div class="empty-packages">
+                    <h3>No Packages Available Yet</h3>
+                    <p>
+                        Please check back later for our decoration packages.
+                    </p>
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+        <div class="view-all">
+
+            <a href="packages.php" class="btn-primary">
+                View All Packages →
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+    <!-- ABOUT -->
+    
+<!-- ABOUT SECTION -->
+<section class="section about-section">
+
+    <div class="container about-grid">
+
+        <!-- About Image -->
+        <div class="about-image">
+            <img
+                src="<?= htmlspecialchars($aboutImage) ?>"
+                alt="Elegant event decoration"
+            >
+        </div>
+
+        <!-- About Content -->
+        <div class="about-content">
+
+            <?php if ($aboutIntro): ?>
+
+                <span class="eyebrow">
+                    <?= htmlspecialchars($aboutIntro['subheading'] ?: $aboutIntro['section_title']) ?>
+                </span>
+
+                <h2>
+                    <?= htmlspecialchars($aboutIntro['heading']) ?>
+                </h2>
+
+                <p>
+                    <?= nl2br(htmlspecialchars($aboutIntro['content'])) ?>
+                </p>
+
+            <?php endif; ?>
+
+            <!-- Mission and Vision -->
+            <div class="about-points">
+
+                <?php if ($aboutMission): ?>
+                    <div class="about-point">
+                        <span>
+                            <i class="fa-solid fa-bullseye"></i>
+                        </span>
+
+                        <div>
+                            <strong>
+                                <?= htmlspecialchars($aboutMission['heading']) ?>
+                            </strong>
+
+                            <p>
+                                <?= nl2br(htmlspecialchars($aboutMission['content'])) ?>
+                            </p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+
+                <?php if ($aboutVision): ?>
+                    <div class="about-point">
+                        <span>
+                            <i class="fa-solid fa-eye"></i>
+                        </span>
+
+                        <div>
+                            <strong>
+                                <?= htmlspecialchars($aboutVision['heading']) ?>
+                            </strong>
+
+                            <p>
+                                <?= nl2br(htmlspecialchars($aboutVision['content'])) ?>
+                            </p>
+                        </div>
+                    </div>
                 <?php endif; ?>
 
             </div>
 
-            <div class="view-all">
-                <a href="packages.php" class="btn-primary">
-                    View All Packages →
-                </a>
-            </div>
-
-        </div>
-    </section>
-
-
-    <!-- ABOUT -->
-    <section class="section about-section">
-
-        <div class="container about-grid">
-
-            <div class="about-image">
-                <img
-                    src="images/mg.jpg"
-                    alt="Elegant event decoration"
-                    loading="lazy"
-                >
-            </div>
-
-            <div class="about-content">
-
-                <span class="eyebrow">The DecorEase Experience</span>
-
-                <h2>
-                    Your Vision, Our Creative Touch
-                </h2>
-
-                <p>
-                    Every event tells a story. The colours, flowers,
-                    lighting and little details come together to make
-                    that story special.
-                </p>
-
-                <p>
-                    Whether you dream of a grand wedding stage,
-                    a colourful Holud celebration or an elegant
-                    corporate setup, we help bring your ideas to life.
-                </p>
-
-                <div class="about-points">
-
-                    <div class="about-point">
-                        <span>✦</span> Creative Concepts
-                    </div>
-
-                    <div class="about-point">
-                        <span>✦</span> Personalized Themes
-                    </div>
-
-                    <div class="about-point">
-                        <span>✦</span> Elegant Styling
-                    </div>
-
-                    <div class="about-point">
-                        <span>✦</span> Flexible Planning
-                    </div>
-
-                </div>
-
-                <a href="services.php" class="btn-primary">
-                    Discover Our Services →
-                </a>
-
-            </div>
+            <a href="services.php" class="btn-primary">
+                Discover Our Services →
+            </a>
 
         </div>
 
-    </section>
+    </div>
+
+</section>
+
 
 
     <!-- HOW IT WORKS -->

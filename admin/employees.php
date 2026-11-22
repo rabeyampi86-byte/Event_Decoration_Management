@@ -1,472 +1,508 @@
 
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
+require_once __DIR__ . '/../db.php';
 
-include_once '../db.php';
-
+/* ===============================
+   Admin Authentication
+================================ */
 if (!isset($_SESSION['admin_id'])) {
-    header("Location: ../login.php");
+    header("Location: login.php");
     exit;
 }
 
-function e($value) {
-    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+/* ===============================
+   CSRF Protection
+================================ */
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-if (empty($_SESSION['employees_csrf'])) {
-    $_SESSION['employees_csrf'] = bin2hex(random_bytes(32));
+$csrfToken = $_SESSION['csrf_token'];
+$success = '';
+$error = '';
+
+/* ===============================
+   Helper Functions
+================================ */
+function clean($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
-$message = '';
-$messageType = '';
-
-$availabilityOptions = ['available', 'busy', 'unavailable'];
-$accountStatuses = ['active', 'inactive', 'suspended'];
-
-// ======================================
-// POST ACTIONS
-// ======================================
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
+function uploadEmployeeImage($file) {
     if (
-        !isset($_POST['csrf_token']) ||
-        !hash_equals($_SESSION['employees_csrf'], $_POST['csrf_token'])
+        !isset($file) ||
+        $file['error'] === UPLOAD_ERR_NO_FILE
     ) {
-        die('Invalid request. Please refresh the page.');
+        return null;
     }
 
-    $action = $_POST['action'] ?? '';
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        throw new Exception("Image upload failed.");
+    }
 
-    // ----------------------------------
-    // ADD EMPLOYEE
-    // ----------------------------------
-    if ($action === 'add') {
+    if ($file['size'] > 5 * 1024 * 1024) {
+        throw new Exception("Image size must not exceed 5 MB.");
+    }
 
-        $name = trim($_POST['full_name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $phone = trim($_POST['phone'] ?? '');
-        $password = $_POST['password'] ?? '';
+    $allowedMime = [
+        'image/jpeg' => 'jpg',
+        'image/png'  => 'png',
+        'image/webp' => 'webp'
+    ];
 
-        $designation = trim($_POST['designation'] ?? '');
-        $specialization = trim($_POST['specialization'] ?? '');
-        $joiningDate = $_POST['joining_date'] ?? '';
-        $salary = $_POST['salary'] ?? '';
-        $availability = $_POST['availability_status'] ?? 'available';
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($file['tmp_name']);
+
+    if (!isset($allowedMime[$mime])) {
+        throw new Exception("Only JPG, PNG and WEBP images are allowed.");
+    }
+
+    $uploadDir = __DIR__ . '/../uploads/employees/';
+
+    if (!is_dir($uploadDir)) {
+        if (!mkdir($uploadDir, 0755, true)) {
+            throw new Exception("Unable to create upload directory.");
+        }
+    }
+
+    $fileName = bin2hex(random_bytes(16)) . '.' . $allowedMime[$mime];
+    $targetPath = $uploadDir . $fileName;
+
+    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        throw new Exception("Unable to save uploaded image.");
+    }
+
+    return 'uploads/employees/' . $fileName;
+}
+
+function deleteEmployeeImage($path) {
+    if (!$path) {
+        return;
+    }
+
+    $prefix = 'uploads/employees/';
+
+    if (strpos($path, $prefix) !== 0) {
+        return;
+    }
+
+    $file = __DIR__ . '/../' . $path;
+
+    if (is_file($file)) {
+        unlink($file);
+    }
+}
+
+/* ===============================
+   POST Actions
+================================ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    try {
 
         if (
-            $name === '' ||
-            !filter_var($email, FILTER_VALIDATE_EMAIL) ||
-            strlen($password) < 8 ||
-            !in_array($availability, $availabilityOptions, true) ||
-            ($salary !== '' && (!is_numeric($salary) || $salary < 0)) ||
-            ($joiningDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $joiningDate))
+            !isset($_POST['csrf_token']) ||
+            !hash_equals($csrfToken, $_POST['csrf_token'])
         ) {
-            $message = 'Please enter valid employee information. Password must contain at least 8 characters.';
-            $messageType = 'error';
+            throw new Exception("Invalid request. Please refresh the page.");
+        }
 
-        } else {
+        $action = $_POST['action'] ?? '';
+
+        /* ===============================
+           ADD EMPLOYEE
+        ================================ */
+        if ($action === 'add') {
+
+            $fullName = trim($_POST['full_name'] ?? '');
+            $email = trim($_POST['email'] ?? '');
+            $phone = trim($_POST['phone'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $designation = trim($_POST['designation'] ?? '');
+            $specialization = trim($_POST['specialization'] ?? '');
+            $joiningDate = $_POST['joining_date'] ?: null;
+            $salary = $_POST['salary'] !== '' ? $_POST['salary'] : null;
+            $availability = $_POST['availability_status'] ?? 'available';
+            $accountStatus = $_POST['status'] ?? 'active';
+            $bio = trim($_POST['bio'] ?? '');
+
+            if (!$fullName || !$email || !$password || !$designation) {
+                throw new Exception("Please fill in all required fields.");
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new Exception("Please enter a valid email address.");
+            }
+
+            if (!in_array($availability, ['available', 'busy', 'unavailable'], true)) {
+                throw new Exception("Invalid availability status.");
+            }
+
+            if (!in_array($accountStatus, ['active', 'inactive', 'suspended'], true)) {
+                throw new Exception("Invalid account status.");
+            }
+
+            $newImage = uploadEmployeeImage($_FILES['profile_image'] ?? null);
 
             $conn->begin_transaction();
 
             try {
+
                 $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-                // Create login account
                 $stmt = $conn->prepare("
                     INSERT INTO users
                     (full_name, email, password_hash, phone, role, status)
-                    VALUES (?, ?, ?, ?, 'employee', 'active')
+                    VALUES (?, ?, ?, ?, 'employee', ?)
                 ");
 
                 $stmt->bind_param(
-                    "ssss",
-                    $name,
+                    "sssss",
+                    $fullName,
                     $email,
                     $passwordHash,
-                    $phone
+                    $phone,
+                    $accountStatus
                 );
 
                 $stmt->execute();
                 $userId = $conn->insert_id;
-                $stmt->close();
 
-                // Create employee profile
-                $profile = $conn->prepare("
+                $stmt = $conn->prepare("
                     INSERT INTO employee_profiles
                     (
                         user_id,
                         designation,
                         specialization,
+                        profile_image,
+                        bio,
                         joining_date,
                         salary,
                         availability_status
                     )
-                    VALUES (?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?)
-                ");
-
-                $salaryValue = $salary === '' ? '' : (string)$salary;
-
-                $profile->bind_param(
-                    "isssss",
-                    $userId,
-                    $designation,
-                    $specialization,
-                    $joiningDate,
-                    $salaryValue,
-                    $availability
-                );
-
-                $profile->execute();
-                $profile->close();
-
-                $conn->commit();
-
-                $message = 'Employee added successfully.';
-                $messageType = 'success';
-
-            } catch (mysqli_sql_exception $ex) {
-
-                $conn->rollback();
-
-                $message = ($ex->getCode() == 1062)
-                    ? 'This email address is already registered.'
-                    : 'Unable to add employee. Please check the information.';
-
-                $messageType = 'error';
-            }
-        }
-    }
-
-    // ----------------------------------
-    // UPDATE EMPLOYEE
-    // ----------------------------------
-    elseif ($action === 'update') {
-
-        $userId = (int)($_POST['user_id'] ?? 0);
-
-        $name = trim($_POST['full_name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $phone = trim($_POST['phone'] ?? '');
-
-        $designation = trim($_POST['designation'] ?? '');
-        $specialization = trim($_POST['specialization'] ?? '');
-        $joiningDate = $_POST['joining_date'] ?? '';
-        $salary = $_POST['salary'] ?? '';
-        $availability = $_POST['availability_status'] ?? '';
-        $accountStatus = $_POST['account_status'] ?? '';
-
-        if (
-            $userId <= 0 ||
-            $name === '' ||
-            !filter_var($email, FILTER_VALIDATE_EMAIL) ||
-            !in_array($availability, $availabilityOptions, true) ||
-            !in_array($accountStatus, $accountStatuses, true) ||
-            ($salary !== '' && (!is_numeric($salary) || $salary < 0)) ||
-            ($joiningDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $joiningDate))
-        ) {
-            $message = 'Invalid employee information.';
-            $messageType = 'error';
-
-        } else {
-
-            try {
-                // Confirm this user is an employee
-                $check = $conn->prepare("
-                    SELECT user_id
-                    FROM users
-                    WHERE user_id = ? AND role = 'employee'
-                    LIMIT 1
-                ");
-
-                $check->bind_param("i", $userId);
-                $check->execute();
-
-                $employeeExists = $check->get_result()->num_rows > 0;
-                $check->close();
-
-                if (!$employeeExists) {
-                    throw new Exception('Employee account not found.');
-                }
-
-                $conn->begin_transaction();
-
-                // Update user account
-                $stmt = $conn->prepare("
-                    UPDATE users
-                    SET full_name = ?,
-                        email = ?,
-                        phone = ?,
-                        status = ?
-                    WHERE user_id = ? AND role = 'employee'
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 $stmt->bind_param(
-                    "ssssi",
-                    $name,
-                    $email,
-                    $phone,
-                    $accountStatus,
-                    $userId
+                    "isssssss",
+                    $userId,
+                    $designation,
+                    $specialization,
+                    $newImage,
+                    $bio,
+                    $joiningDate,
+                    $salary,
+                    $availability
                 );
 
                 $stmt->execute();
-                $stmt->close();
-
-                // Update employee profile
-                $profile = $conn->prepare("
-                    UPDATE employee_profiles
-                    SET designation = NULLIF(?, ''),
-                        specialization = NULLIF(?, ''),
-                        joining_date = NULLIF(?, ''),
-                        salary = NULLIF(?, ''),
-                        availability_status = ?
-                    WHERE user_id = ?
-                ");
-
-                $salaryValue = $salary === '' ? '' : (string)$salary;
-
-                $profile->bind_param(
-                    "sssssi",
-                    $designation,
-                    $specialization,
-                    $joiningDate,
-                    $salaryValue,
-                    $availability,
-                    $userId
-                );
-
-                $profile->execute();
-
-                // If profile does not exist, create it
-                if ($profile->affected_rows === 0) {
-
-                    $profileCheck = $conn->prepare("
-                        SELECT employee_id
-                        FROM employee_profiles
-                        WHERE user_id = ?
-                    ");
-
-                    $profileCheck->bind_param("i", $userId);
-                    $profileCheck->execute();
-
-                    $profileExists = $profileCheck->get_result()->num_rows > 0;
-                    $profileCheck->close();
-
-                    if (!$profileExists) {
-                        $profile->close();
-
-                        $insert = $conn->prepare("
-                            INSERT INTO employee_profiles
-                            (
-                                user_id,
-                                designation,
-                                specialization,
-                                joining_date,
-                                salary,
-                                availability_status
-                            )
-                            VALUES (?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?)
-                        ");
-
-                        $insert->bind_param(
-                            "isssss",
-                            $userId,
-                            $designation,
-                            $specialization,
-                            $joiningDate,
-                            $salaryValue,
-                            $availability
-                        );
-
-                        $insert->execute();
-                        $insert->close();
-
-                    } else {
-                        $profile->close();
-                    }
-
-                } else {
-                    $profile->close();
-                }
 
                 $conn->commit();
 
-                $message = 'Employee information updated successfully.';
-                $messageType = 'success';
+                $success = "Employee added successfully.";
 
-            } catch (Exception $ex) {
+            } catch (Throwable $e) {
+                $conn->rollback();
 
-                if ($conn->errno === 0 || $conn->connect_errno === 0) {
-                    try {
-                        $conn->rollback();
-                    } catch (Throwable $ignored) {
-                    }
+                if ($newImage) {
+                    deleteEmployeeImage($newImage);
                 }
 
-                $message = $ex instanceof mysqli_sql_exception &&
-                           $ex->getCode() == 1062
-                    ? 'This email address is already used.'
-                    : 'Unable to update employee information.';
-
-                $messageType = 'error';
+                throw $e;
             }
         }
+
+        /* ===============================
+           UPDATE EMPLOYEE
+        ================================ */
+        elseif ($action === 'update') {
+
+            $employeeId = (int)($_POST['employee_id'] ?? 0);
+            $userId = (int)($_POST['user_id'] ?? 0);
+
+            $fullName = trim($_POST['full_name'] ?? '');
+            $email = trim($_POST['email'] ?? '');
+            $phone = trim($_POST['phone'] ?? '');
+            $password = $_POST['password'] ?? '';
+
+            $designation = trim($_POST['designation'] ?? '');
+            $specialization = trim($_POST['specialization'] ?? '');
+            $joiningDate = $_POST['joining_date'] ?: null;
+            $salary = $_POST['salary'] !== '' ? $_POST['salary'] : null;
+            $availability = $_POST['availability_status'] ?? 'available';
+            $accountStatus = $_POST['status'] ?? 'active';
+            $bio = trim($_POST['bio'] ?? '');
+
+            if (!$employeeId || !$userId || !$fullName || !$email || !$designation) {
+                throw new Exception("Please fill in all required fields.");
+            }
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new Exception("Please enter a valid email address.");
+            }
+
+            if (!in_array($availability, ['available', 'busy', 'unavailable'], true)) {
+                throw new Exception("Invalid availability status.");
+            }
+
+            if (!in_array($accountStatus, ['active', 'inactive', 'suspended'], true)) {
+                throw new Exception("Invalid account status.");
+            }
+
+            $stmt = $conn->prepare("
+                SELECT profile_image
+                FROM employee_profiles
+                WHERE employee_id = ? AND user_id = ?
+            ");
+
+            $stmt->bind_param("ii", $employeeId, $userId);
+            $stmt->execute();
+
+            $oldProfile = $stmt->get_result()->fetch_assoc();
+
+            if (!$oldProfile) {
+                throw new Exception("Employee record not found.");
+            }
+
+            $oldImage = $oldProfile['profile_image'];
+            $newImage = uploadEmployeeImage($_FILES['profile_image'] ?? null);
+
+            $conn->begin_transaction();
+
+            try {
+
+                if ($password !== '') {
+
+                    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+                    $stmt = $conn->prepare("
+                        UPDATE users
+                        SET full_name = ?, email = ?, phone = ?,
+                            password_hash = ?, status = ?
+                        WHERE user_id = ? AND role = 'employee'
+                    ");
+
+                    $stmt->bind_param(
+                        "sssssi",
+                        $fullName,
+                        $email,
+                        $phone,
+                        $passwordHash,
+                        $accountStatus,
+                        $userId
+                    );
+
+                } else {
+
+                    $stmt = $conn->prepare("
+                        UPDATE users
+                        SET full_name = ?, email = ?, phone = ?, status = ?
+                        WHERE user_id = ? AND role = 'employee'
+                    ");
+
+                    $stmt->bind_param(
+                        "ssssi",
+                        $fullName,
+                        $email,
+                        $phone,
+                        $accountStatus,
+                        $userId
+                    );
+                }
+
+                $stmt->execute();
+
+                if ($newImage !== null) {
+
+                    $stmt = $conn->prepare("
+                        UPDATE employee_profiles
+                        SET designation = ?,
+                            specialization = ?,
+                            profile_image = ?,
+                            bio = ?,
+                            joining_date = ?,
+                            salary = ?,
+                            availability_status = ?
+                        WHERE employee_id = ? AND user_id = ?
+                    ");
+
+                    $stmt->bind_param(
+                        "sssssssii",
+                        $designation,
+                        $specialization,
+                        $newImage,
+                        $bio,
+                        $joiningDate,
+                        $salary,
+                        $availability,
+                        $employeeId,
+                        $userId
+                    );
+
+                } else {
+
+                    $stmt = $conn->prepare("
+                        UPDATE employee_profiles
+                        SET designation = ?,
+                            specialization = ?,
+                            bio = ?,
+                            joining_date = ?,
+                            salary = ?,
+                            availability_status = ?
+                        WHERE employee_id = ? AND user_id = ?
+                    ");
+
+                    $stmt->bind_param(
+                        "ssssssii",
+                        $designation,
+                        $specialization,
+                        $bio,
+                        $joiningDate,
+                        $salary,
+                        $availability,
+                        $employeeId,
+                        $userId
+                    );
+                }
+
+                $stmt->execute();
+
+                $conn->commit();
+
+                if ($newImage !== null && $oldImage !== $newImage) {
+                    deleteEmployeeImage($oldImage);
+                }
+
+                $success = "Employee updated successfully.";
+
+            } catch (Throwable $e) {
+                $conn->rollback();
+
+                if ($newImage) {
+                    deleteEmployeeImage($newImage);
+                }
+
+                throw $e;
+            }
+            
+        }
+
+    } catch (Throwable $e) {
+        $error = $e->getMessage();
     }
-
-    $_SESSION['employees_message'] = $message;
-    $_SESSION['employees_message_type'] = $messageType;
-
-    header("Location: employees.php");
-    exit;
 }
 
-// ======================================
-// FLASH MESSAGE
-// ======================================
-if (isset($_SESSION['employees_message'])) {
-
-    $message = $_SESSION['employees_message'];
-    $messageType = $_SESSION['employees_message_type'] ?? 'success';
-
-    unset($_SESSION['employees_message']);
-    unset($_SESSION['employees_message_type']);
-}
-
-// ======================================
-// SEARCH AND FILTER
-// ======================================
+/* ===============================
+   Search / Filter
+================================ */
 $search = trim($_GET['search'] ?? '');
+$statusFilter = $_GET['status'] ?? '';
 $availabilityFilter = $_GET['availability'] ?? '';
-$accountFilter = $_GET['account_status'] ?? '';
 
-$where = [];
+$where = ["u.role = 'employee'"];
 $params = [];
 $types = '';
 
 if ($search !== '') {
+    $where[] = "(u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR ep.designation LIKE ?)";
+    $term = "%$search%";
 
-    $where[] = "(
-        u.full_name LIKE ?
-        OR u.email LIKE ?
-        OR u.phone LIKE ?
-        OR ep.designation LIKE ?
-        OR ep.specialization LIKE ?
-        OR CAST(u.user_id AS CHAR) LIKE ?
-    )";
-
-    $term = "%{$search}%";
-
-    for ($i = 0; $i < 6; $i++) {
-        $params[] = $term;
-    }
-
-    $types .= 'ssssss';
+    $params = array_merge($params, [$term, $term, $term, $term]);
+    $types .= 'ssss';
 }
 
-if (in_array($availabilityFilter, $availabilityOptions, true)) {
+if (in_array($statusFilter, ['active', 'inactive', 'suspended'], true)) {
+    $where[] = "u.status = ?";
+    $params[] = $statusFilter;
+    $types .= 's';
+}
+
+if (in_array($availabilityFilter, ['available', 'busy', 'unavailable'], true)) {
     $where[] = "ep.availability_status = ?";
     $params[] = $availabilityFilter;
     $types .= 's';
 }
 
-if (in_array($accountFilter, $accountStatuses, true)) {
-    $where[] = "u.status = ?";
-    $params[] = $accountFilter;
-    $types .= 's';
-}
+$whereSQL = implode(' AND ', $where);
 
-$whereSQL = $where ? 'AND ' . implode(' AND ', $where) : '';
-
-// ======================================
-// STATISTICS
-// ======================================
+/* ===============================
+   Statistics
+================================ */
 $stats = [
     'total' => 0,
     'active' => 0,
-    'inactive' => 0,
-    'suspended' => 0,
     'available' => 0,
-    'busy' => 0,
-    'unavailable' => 0
+    'busy' => 0
 ];
 
-$statsQuery = $conn->query("
+$result = $conn->query("
     SELECT
         COUNT(*) AS total,
         SUM(u.status = 'active') AS active,
-        SUM(u.status = 'inactive') AS inactive,
-        SUM(u.status = 'suspended') AS suspended,
         SUM(ep.availability_status = 'available') AS available,
-        SUM(ep.availability_status = 'busy') AS busy,
-        SUM(ep.availability_status = 'unavailable') AS unavailable
-    FROM users u
-    LEFT JOIN employee_profiles ep ON ep.user_id = u.user_id
+        SUM(ep.availability_status = 'busy') AS busy
+    FROM employee_profiles ep
+    INNER JOIN users u ON ep.user_id = u.user_id
     WHERE u.role = 'employee'
 ");
 
-if ($statsQuery) {
-    $stats = array_merge($stats, $statsQuery->fetch_assoc());
+if ($result) {
+    $stats = $result->fetch_assoc();
 }
 
-// ======================================
-// PAGINATION
-// ======================================
+/* ===============================
+   Pagination
+================================ */
 $limit = 10;
 $page = max(1, (int)($_GET['page'] ?? 1));
 
 $countSQL = "
-    SELECT COUNT(*)
-    FROM users u
-    LEFT JOIN employee_profiles ep ON ep.user_id = u.user_id
-    WHERE u.role = 'employee' $whereSQL
+    SELECT COUNT(*) AS total
+    FROM employee_profiles ep
+    INNER JOIN users u ON ep.user_id = u.user_id
+    WHERE $whereSQL
 ";
 
-$countStmt = $conn->prepare($countSQL);
+$stmt = $conn->prepare($countSQL);
 
-if ($params) {
-    $countStmt->bind_param($types, ...$params);
+if ($types !== '') {
+    $stmt->bind_param($types, ...$params);
 }
 
-$countStmt->execute();
-$totalEmployees = (int)$countStmt->get_result()->fetch_row()[0];
-$countStmt->close();
+$stmt->execute();
+$totalRows = (int)$stmt->get_result()->fetch_assoc()['total'];
 
-$totalPages = max(1, (int)ceil($totalEmployees / $limit));
+$totalPages = max(1, (int)ceil($totalRows / $limit));
 $page = min($page, $totalPages);
 $offset = ($page - 1) * $limit;
 
-// ======================================
-// FETCH EMPLOYEES
-// ======================================
-$sql = "
+/* ===============================
+   Employee List
+================================ */
+$listSQL = "
     SELECT
-        u.user_id,
+        ep.employee_id,
+        ep.user_id,
+        ep.designation,
+        ep.specialization,
+        ep.profile_image,
+        ep.bio,
+        ep.joining_date,
+        ep.salary,
+        ep.availability_status,
         u.full_name,
         u.email,
         u.phone,
-        u.status AS account_status,
-        u.created_at,
-        ep.employee_id,
-        ep.designation,
-        ep.specialization,
-        ep.joining_date,
-        ep.salary,
-        ep.availability_status
-
-    FROM users u
-
-    LEFT JOIN employee_profiles ep
-        ON ep.user_id = u.user_id
-
-    WHERE u.role = 'employee' $whereSQL
-
-    ORDER BY u.user_id DESC
+        u.status
+    FROM employee_profiles ep
+    INNER JOIN users u ON ep.user_id = u.user_id
+    WHERE $whereSQL
+    ORDER BY ep.employee_id DESC
     LIMIT ? OFFSET ?
 ";
 
-$stmt = $conn->prepare($sql);
+$stmt = $conn->prepare($listSQL);
 
 $listTypes = $types . 'ii';
 $listParams = array_merge($params, [$limit, $offset]);
@@ -474,23 +510,319 @@ $listParams = array_merge($params, [$limit, $offset]);
 $stmt->bind_param($listTypes, ...$listParams);
 $stmt->execute();
 
-$employees = $stmt->get_result();
+$employees = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+function pageUrl($page) {
+    $query = $_GET;
+    $query['page'] = $page;
+
+    return '?' . http_build_query($query);
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Employee Management | Admin</title>
 
-    <title>Employees Management | DecorEase Admin</title>
+<link rel="stylesheet" href="includes/css/admin.css">
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<style>
+.employee-page {
+    padding: 25px;
+}
 
-    <link rel="stylesheet" href="includes/css/admin.css">
+.page-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.page-heading h2 {
+    margin: 0;
+    font-size: 25px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    background: #fff;
+    padding: 22px;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+}
+
+.stat-card h3 {
+    font-size: 27px;
+    margin: 8px 0;
+}
+
+.stat-card p {
+    color: #777;
+    margin: 0;
+}
+
+.employee-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.employee-toolbar input,
+.employee-toolbar select,
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    font-size: 14px;
+}
+
+.employee-toolbar input {
+    max-width: 280px;
+}
+
+.employee-toolbar select {
+    width: auto;
+    min-width: 150px;
+}
+
+.btn {
+    border: 0;
+    border-radius: 7px;
+    padding: 11px 17px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.btn-primary {
+    background: #6d314b;
+    color: #fff;
+}
+
+.btn-secondary {
+    background: #eee;
+    color: #333;
+}
+
+.btn-edit {
+    background: #f1e4ea;
+    color: #6d314b;
+}
+
+.table-wrapper {
+    background: #fff;
+    border-radius: 12px;
+    overflow-x: auto;
+    box-shadow: 0 2px 12px rgba(0,0,0,.05);
+}
+
+.employee-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 950px;
+}
+
+.employee-table th,
+.employee-table td {
+    padding: 14px 15px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    font-size: 13px;
+}
+
+.employee-table th {
+    background: #faf6f8;
+    color: #5b3545;
+}
+
+.employee-photo {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #f1e4ea;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    background: #eee;
+}
+
+.status-active,
+.status-available {
+    background: #e2f5e9;
+    color: #237544;
+}
+
+.status-inactive,
+.status-unavailable {
+    background: #fbe8e8;
+    color: #a33;
+}
+
+.status-busy {
+    background: #fff1d9;
+    color: #98630b;
+}
+
+.alert {
+    padding: 13px 16px;
+    margin-bottom: 18px;
+    border-radius: 7px;
+}
+
+.alert-success {
+    background: #e4f5e9;
+    color: #236b3b;
+}
+
+.alert-error {
+    background: #fbe8e8;
+    color: #a33;
+}
+
+.pagination {
+    display: flex;
+    gap: 7px;
+    justify-content: center;
+    margin: 25px 0;
+}
+
+.pagination a {
+    padding: 8px 13px;
+    border-radius: 6px;
+    background: #fff;
+    color: #6d314b;
+    text-decoration: none;
+    border: 1px solid #eee;
+}
+
+.pagination a.current {
+    background: #6d314b;
+    color: #fff;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 9999;
+    padding: 25px;
+    overflow-y: auto;
+}
+
+.modal-content {
+    background: #fff;
+    max-width: 750px;
+    margin: 30px auto;
+    border-radius: 12px;
+    padding: 25px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+}
+
+.modal-header h3 {
+    margin: 0;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    font-size: 25px;
+    cursor: pointer;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 17px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.form-group small {
+    color: #777;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.image-preview {
+    width: 75px;
+    height: 75px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-bottom: 10px;
+}
+
+@media(max-width:900px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media(max-width:600px) {
+    .employee-page {
+        padding: 12px;
+    }
+
+    .page-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+}
+</style>
 </head>
 
 <body>
@@ -499,233 +831,211 @@ $employees = $stmt->get_result();
 
     <?php include 'includes/sidebar.php'; ?>
 
-    <main class="main-content">
+    <div class="main-content">
 
         <?php include 'includes/header.php'; ?>
 
-        <section class="employees-page">
+        <div class="employee-page">
 
-            <!-- HEADING -->
-            <div class="employees-heading">
-
+            <div class="page-heading">
                 <div>
-                    <h1>Employees Management</h1>
-                    <p>Manage employee information and availability</p>
+                    <h2>Employee Management</h2>
+                    <p>Manage your employees and their profiles.</p>
                 </div>
 
-                <button type="button"
-                        class="employees-add-btn"
-                        onclick="openAddEmployeeModal()">
-
-                    <i class="fas fa-user-plus"></i>
-                    Add New Employee
-
+                <button class="btn btn-primary" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Add Employee
                 </button>
-
             </div>
 
-            <!-- MESSAGE -->
-            <?php if ($message !== ''): ?>
-
-                <div class="employees-alert <?php echo e($messageType); ?>">
-                    <?php echo e($message); ?>
+            <?php if ($success): ?>
+                <div class="alert alert-success">
+                    <?= clean($success) ?>
                 </div>
-
             <?php endif; ?>
 
-            <!-- STATISTICS -->
-            <div class="employees-stats">
+            <?php if ($error): ?>
+                <div class="alert alert-error">
+                    <?= clean($error) ?>
+                </div>
+            <?php endif; ?>
 
-                <div class="employees-stat-card">
-                    <span>Total Employees</span>
-                    <strong><?php echo (int)$stats['total']; ?></strong>
+            <!-- Statistics -->
+            <div class="stats-grid">
+
+                <div class="stat-card">
+                    <p>Total Employees</p>
+                    <h3><?= (int)$stats['total'] ?></h3>
                 </div>
 
-                <div class="employees-stat-card">
-                    <span>Active Accounts</span>
-                    <strong><?php echo (int)$stats['active']; ?></strong>
+                <div class="stat-card">
+                    <p>Active Employees</p>
+                    <h3><?= (int)$stats['active'] ?></h3>
                 </div>
 
-                <div class="employees-stat-card">
-                    <span>Inactive Accounts</span>
-                    <strong><?php echo (int)$stats['inactive']; ?></strong>
+                <div class="stat-card">
+                    <p>Available Employees</p>
+                    <h3><?= (int)$stats['available'] ?></h3>
                 </div>
 
-                <div class="employees-stat-card">
-                    <span>Available</span>
-                    <strong><?php echo (int)$stats['available']; ?></strong>
-                </div>
-
-                <div class="employees-stat-card">
-                    <span>Busy</span>
-                    <strong><?php echo (int)$stats['busy']; ?></strong>
-                </div>
-
-                <div class="employees-stat-card">
-                    <span>Unavailable</span>
-                    <strong><?php echo (int)$stats['unavailable']; ?></strong>
+                <div class="stat-card">
+                    <p>Busy Employees</p>
+                    <h3><?= (int)$stats['busy'] ?></h3>
                 </div>
 
             </div>
 
-            <!-- SEARCH AND FILTER -->
-            <form method="GET" class="employees-filter-form">
+            <!-- Search and Filters -->
+            <form method="GET" class="employee-toolbar">
 
                 <input
-                    type="text"
+                    type="search"
                     name="search"
-                    placeholder="Search name, email, phone or designation..."
-                    value="<?php echo e($search); ?>"
+                    placeholder="Search name, email, phone..."
+                    value="<?= clean($search) ?>"
                 >
 
-                <select name="availability">
-
-                    <option value="">All Availability</option>
-
-                    <?php foreach ($availabilityOptions as $option): ?>
-
-                        <option value="<?php echo e($option); ?>"
-                            <?php echo $availabilityFilter === $option ? 'selected' : ''; ?>>
-
-                            <?php echo ucfirst($option); ?>
-
-                        </option>
-
-                    <?php endforeach; ?>
-
-                </select>
-
-                <select name="account_status">
-
+                <select name="status">
                     <option value="">All Account Status</option>
-
-                    <?php foreach ($accountStatuses as $status): ?>
-
-                        <option value="<?php echo e($status); ?>"
-                            <?php echo $accountFilter === $status ? 'selected' : ''; ?>>
-
-                            <?php echo ucfirst($status); ?>
-
-                        </option>
-
-                    <?php endforeach; ?>
-
+                    <option value="active" <?= $statusFilter === 'active' ? 'selected' : '' ?>>Active</option>
+                    <option value="inactive" <?= $statusFilter === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                    <option value="suspended" <?= $statusFilter === 'suspended' ? 'selected' : '' ?>>Suspended</option>
                 </select>
 
-                <button type="submit">
+                <select name="availability">
+                    <option value="">All Availability</option>
+                    <option value="available" <?= $availabilityFilter === 'available' ? 'selected' : '' ?>>Available</option>
+                    <option value="busy" <?= $availabilityFilter === 'busy' ? 'selected' : '' ?>>Busy</option>
+                    <option value="unavailable" <?= $availabilityFilter === 'unavailable' ? 'selected' : '' ?>>Unavailable</option>
+                </select>
+
+                <button class="btn btn-primary" type="submit">
                     <i class="fas fa-search"></i> Search
                 </button>
 
-                <a href="employees.php" class="employees-reset-btn">
+                <a href="employees.php" class="btn btn-secondary">
                     Reset
                 </a>
 
             </form>
 
-            <!-- EMPLOYEE TABLE -->
-            <div class="employees-table-container">
+            <!-- Employee Table -->
+            <div class="table-wrapper">
 
-                <table class="employees-table">
+                <table class="employee-table">
 
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Employee Information</th>
-                            <th>Phone</th>
+                            <th>Employee</th>
+                            <th>Contact</th>
                             <th>Designation</th>
                             <th>Specialization</th>
+                            <th>Joining Date</th>
                             <th>Salary</th>
                             <th>Availability</th>
-                            <th>Account</th>
-                            <th>Joining Date</th>
-                            <th>Actions</th>
+                            <th>Account Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
 
                     <tbody>
 
-                    <?php if ($employees->num_rows > 0): ?>
+                    <?php if (count($employees) > 0): ?>
 
-                        <?php while ($employee = $employees->fetch_assoc()): ?>
+                        <?php foreach ($employees as $employee): ?>
 
                             <tr>
 
-                                <td>#<?php echo (int)$employee['user_id']; ?></td>
-
                                 <td>
-                                    <strong><?php echo e($employee['full_name']); ?></strong>
-                                    <small><?php echo e($employee['email']); ?></small>
+                                    <div style="display:flex;align-items:center;gap:10px;">
+
+                                        <?php if (!empty($employee['profile_image'])): ?>
+                                            <img
+                                                class="employee-photo"
+                                                src="../<?= clean($employee['profile_image']) ?>"
+                                                alt="Employee"
+                                            >
+                                        <?php else: ?>
+                                            <div class="employee-photo"
+                                                 style="display:flex;align-items:center;justify-content:center;">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <strong><?= clean($employee['full_name']) ?></strong>
+
+                                    </div>
                                 </td>
 
-                                <td><?php echo e($employee['phone'] ?: 'N/A'); ?></td>
+                                <td>
+                                    <?= clean($employee['email']) ?><br>
+                                    <small><?= clean($employee['phone']) ?></small>
+                                </td>
 
-                                <td><?php echo e($employee['designation'] ?: 'N/A'); ?></td>
+                                <td><?= clean($employee['designation']) ?></td>
 
-                                <td><?php echo e($employee['specialization'] ?: 'N/A'); ?></td>
+                                <td><?= clean($employee['specialization']) ?></td>
+
+                                <td><?= clean($employee['joining_date']) ?></td>
 
                                 <td>
-                                    <?php
-                                    echo $employee['salary'] !== null
-                                        ? '৳' . number_format((float)$employee['salary'], 2)
-                                        : 'N/A';
-                                    ?>
+                                    <?= $employee['salary'] !== null
+                                        ? number_format((float)$employee['salary'], 2)
+                                        : '—' ?>
                                 </td>
 
                                 <td>
-                                    <span class="employees-availability <?php echo e($employee['availability_status'] ?? 'unavailable'); ?>">
-                                        <?php echo ucfirst(e($employee['availability_status'] ?? 'N/A')); ?>
+                                    <span class="status-badge status-<?= clean($employee['availability_status']) ?>">
+                                        <?= ucfirst(clean($employee['availability_status'])) ?>
                                     </span>
                                 </td>
 
                                 <td>
-                                    <span class="employees-account-status <?php echo e($employee['account_status']); ?>">
-                                        <?php echo ucfirst(e($employee['account_status'])); ?>
+                                    <span class="status-badge status-<?= clean($employee['status']) ?>">
+                                        <?= ucfirst(clean($employee['status'])) ?>
                                     </span>
                                 </td>
 
                                 <td>
-                                    <?php
-                                    echo $employee['joining_date']
-                                        ? date('d M Y', strtotime($employee['joining_date']))
-                                        : 'N/A';
-                                    ?>
-                                </td>
+    <div style="display:flex; gap:7px;">
 
-                                <td>
+        <!-- Edit Button -->
+        <button
+            type="button"
+            class="btn btn-edit"
+            onclick='openEditModal(<?= json_encode($employee, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP) ?>)'
+        >
+            <i class="fas fa-edit"></i> Edit
+        </button>
 
-                                    <button
-                                        type="button"
-                                        class="employees-edit-btn"
-                                        title="Edit Employee"
-                                        onclick='openEditEmployeeModal(<?php
-                                            echo json_encode([
-                                                "user_id" => $employee["user_id"],
-                                                "full_name" => $employee["full_name"],
-                                                "email" => $employee["email"],
-                                                "phone" => $employee["phone"],
-                                                "designation" => $employee["designation"],
-                                                "specialization" => $employee["specialization"],
-                                                "joining_date" => $employee["joining_date"],
-                                                "salary" => $employee["salary"],
-                                                "availability_status" => $employee["availability_status"] ?? "available",
-                                                "account_status" => $employee["account_status"]
-                                            ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-                                        ?>)'>
+        <!-- Delete Button -->
+        <form action="delete_employee.php" method="POST"
+              onsubmit="return confirm('Are you sure you want to delete this employee?');">
 
-                                        <i class="fas fa-edit"></i>
+            <input type="hidden" name="employee_id"
+                   value="<?= (int)$employee['employee_id'] ?>">
 
-                                    </button>
+            <input type="hidden" name="csrf_token"
+                   value="<?= clean($csrfToken) ?>">
 
-                                </td>
+            <button type="submit" class="btn"
+                    style="background:#fde8e8;color:#b42318;">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+
+        </form>
+
+    </div>
+</td>
 
                             </tr>
 
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
 
                     <?php else: ?>
 
                         <tr>
-                            <td colspan="10" class="employees-empty">
+                            <td colspan="9" style="text-align:center;padding:30px;">
                                 No employees found.
                             </td>
                         </tr>
@@ -733,251 +1043,259 @@ $employees = $stmt->get_result();
                     <?php endif; ?>
 
                     </tbody>
-
                 </table>
 
             </div>
 
-            <!-- PAGINATION -->
+            <!-- Pagination -->
             <?php if ($totalPages > 1): ?>
 
-                <div class="employees-pagination">
-
-                    <?php $queryParams = $_GET; ?>
+                <div class="pagination">
 
                     <?php if ($page > 1): ?>
-
-                        <?php $queryParams['page'] = $page - 1; ?>
-
-                        <a href="?<?php echo e(http_build_query($queryParams)); ?>">
+                        <a href="<?= clean(pageUrl($page - 1)) ?>">
                             <i class="fas fa-chevron-left"></i>
                         </a>
-
                     <?php endif; ?>
 
-                    <span>
-                        Page <?php echo $page; ?> of <?php echo $totalPages; ?>
-                    </span>
+                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                        <a
+                            href="<?= clean(pageUrl($i)) ?>"
+                            class="<?= $i === $page ? 'current' : '' ?>"
+                        >
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
 
                     <?php if ($page < $totalPages): ?>
-
-                        <?php $queryParams['page'] = $page + 1; ?>
-
-                        <a href="?<?php echo e(http_build_query($queryParams)); ?>">
+                        <a href="<?= clean(pageUrl($page + 1)) ?>">
                             <i class="fas fa-chevron-right"></i>
                         </a>
-
                     <?php endif; ?>
 
                 </div>
 
             <?php endif; ?>
 
-        </section>
+        </div>
 
-    </main>
+        <?php include 'includes/footer.php'; ?>
 
+    </div>
 </div>
 
 
 <!-- ADD / EDIT EMPLOYEE MODAL -->
-<div class="employees-modal" id="employeeModal">
+<div class="modal" id="employeeModal">
 
-    <div class="employees-modal-content">
+    <div class="modal-content">
 
-        <div class="employees-modal-header">
-
-            <h2 id="employeeModalTitle">Add New Employee</h2>
-
-            <button type="button" onclick="closeEmployeeModal()">
-                &times;
-            </button>
-
+        <div class="modal-header">
+            <h3 id="modalTitle">Add New Employee</h3>
+            <button type="button" class="close-modal" onclick="closeModal()">&times;</button>
         </div>
 
-        <form method="POST" id="employeeForm">
+        <form method="POST" enctype="multipart/form-data">
 
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="<?php echo e($_SESSION['employees_csrf']); ?>"
-            >
+            <input type="hidden" name="csrf_token" value="<?= clean($csrfToken) ?>">
+            <input type="hidden" name="action" id="formAction" value="add">
+            <input type="hidden" name="employee_id" id="employeeId">
+            <input type="hidden" name="user_id" id="userId">
 
-            <input type="hidden" name="action" id="employeeAction" value="add">
+            <div class="form-grid">
 
-            <input type="hidden" name="user_id" id="employeeUserId">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" name="full_name" id="fullName" required>
+                </div>
 
-            <div class="employees-form-group">
-                <label>Full Name *</label>
-                <input type="text" name="full_name" id="employeeName" required>
-            </div>
+                <div class="form-group">
+                    <label>Email Address *</label>
+                    <input type="email" name="email" id="email" required>
+                </div>
 
-            <div class="employees-form-group">
-                <label>Email Address *</label>
-                <input type="email" name="email" id="employeeEmail" required>
-            </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone" id="phone">
+                </div>
 
-            <div class="employees-form-group">
-                <label>Phone Number</label>
-                <input type="text" name="phone" id="employeePhone">
-            </div>
+                <div class="form-group">
+                    <label>Password <span id="passwordNote">*</span></label>
+                    <input type="password" name="password" id="password">
+                    <small id="passwordHelp">Required for a new employee.</small>
+                </div>
 
-            <div class="employees-form-group" id="employeePasswordGroup">
-                <label>Password *</label>
-                <input type="password"
-                       name="password"
-                       id="employeePassword"
-                       minlength="8">
-                <small>Minimum 8 characters.</small>
-            </div>
+                <div class="form-group">
+                    <label>Designation *</label>
+                    <input type="text" name="designation" id="designation" required>
+                </div>
 
-            <div class="employees-form-group">
-                <label>Designation</label>
-                <input type="text" name="designation" id="employeeDesignation">
-            </div>
+                <div class="form-group">
+                    <label>Specialization</label>
+                    <input type="text" name="specialization" id="specialization">
+                </div>
 
-            <div class="employees-form-group">
-                <label>Specialization</label>
-                <input type="text" name="specialization" id="employeeSpecialization">
-            </div>
+                <div class="form-group">
+                    <label>Joining Date</label>
+                    <input type="date" name="joining_date" id="joiningDate">
+                </div>
 
-            <div class="employees-form-group">
-                <label>Joining Date</label>
-                <input type="date" name="joining_date" id="employeeJoiningDate">
-            </div>
+                <div class="form-group">
+                    <label>Salary</label>
+                    <input type="number" name="salary" id="salary" min="0" step="0.01">
+                </div>
 
-            <div class="employees-form-group">
-                <label>Salary (BDT)</label>
-                <input type="number"
-                       name="salary"
-                       id="employeeSalary"
-                       min="0"
-                       step="0.01">
-            </div>
+                <div class="form-group">
+                    <label>Availability</label>
+                    <select name="availability_status" id="availability">
+                        <option value="available">Available</option>
+                        <option value="busy">Busy</option>
+                        <option value="unavailable">Unavailable</option>
+                    </select>
+                </div>
 
-            <div class="employees-form-group">
-                <label>Availability Status</label>
-
-                <select name="availability_status" id="employeeAvailability">
-
-                    <option value="available">Available</option>
-                    <option value="busy">Busy</option>
-                    <option value="unavailable">Unavailable</option>
-
-                </select>
-            </div>
-
-            <div class="employees-form-group" id="employeeAccountGroup" style="display:none;">
-
-                <label>Account Status</label>
-
-                <select name="account_status" id="employeeAccountStatus">
-
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="suspended">Suspended</option>
-
-                </select>
+                <div class="form-group">
+                    <label>Account Status</label>
+                    <select name="status" id="accountStatus">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                </div>
 
             </div>
 
-            <div class="employees-modal-actions">
+            <div class="form-group">
+                <label>Profile Image</label>
+                <div id="currentImagePreview"></div>
+                <input
+                    type="file"
+                    name="profile_image"
+                    id="profileImage"
+                    accept=".jpg,.jpeg,.png,.webp"
+                >
+                <small>JPG, PNG or WEBP. Maximum size 5 MB.</small>
+            </div>
 
-                <button type="button"
-                        class="employees-cancel-btn"
-                        onclick="closeEmployeeModal()">
+            <div class="form-group">
+                <label>Employee Bio</label>
+                <textarea
+                    name="bio"
+                    id="bio"
+                    placeholder="Write a short introduction about this employee..."
+                ></textarea>
+            </div>
 
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">
                     Cancel
-
                 </button>
 
-                <button type="submit" class="employees-save-btn">
-                    Save Employee
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Employee
                 </button>
-
             </div>
 
         </form>
 
     </div>
-
 </div>
 
 
 <script>
+const employeeModal = document.getElementById('employeeModal');
 
-function openAddEmployeeModal() {
+function openAddModal() {
 
-    document.getElementById('employeeForm').reset();
+    document.getElementById('modalTitle').textContent = 'Add New Employee';
+    document.getElementById('formAction').value = 'add';
 
-    document.getElementById('employeeModalTitle').textContent = 'Add New Employee';
-    document.getElementById('employeeAction').value = 'add';
-    document.getElementById('employeeUserId').value = '';
+    document.getElementById('employeeId').value = '';
+    document.getElementById('userId').value = '';
 
-    document.getElementById('employeePasswordGroup').style.display = 'block';
-    document.getElementById('employeePassword').required = true;
+    document.getElementById('fullName').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('phone').value = '';
+    document.getElementById('password').value = '';
 
-    document.getElementById('employeeAccountGroup').style.display = 'none';
+    document.getElementById('designation').value = '';
+    document.getElementById('specialization').value = '';
+    document.getElementById('joiningDate').value = '';
+    document.getElementById('salary').value = '';
 
-    document.getElementById('employeeModal').classList.add('show');
+    document.getElementById('availability').value = 'available';
+    document.getElementById('accountStatus').value = 'active';
+
+    document.getElementById('bio').value = '';
+    document.getElementById('profileImage').value = '';
+
+    document.getElementById('password').required = true;
+    document.getElementById('passwordNote').textContent = '*';
+    document.getElementById('passwordHelp').textContent = 'Required for a new employee.';
+
+    document.getElementById('currentImagePreview').innerHTML = '';
+
+    employeeModal.style.display = 'block';
 }
 
 
-function openEditEmployeeModal(employee) {
+function openEditModal(employee) {
 
-    document.getElementById('employeeForm').reset();
+    document.getElementById('modalTitle').textContent = 'Edit Employee';
+    document.getElementById('formAction').value = 'update';
 
-    document.getElementById('employeeModalTitle').textContent = 'Edit Employee';
-    document.getElementById('employeeAction').value = 'update';
+    document.getElementById('employeeId').value = employee.employee_id;
+    document.getElementById('userId').value = employee.user_id;
 
-    document.getElementById('employeeUserId').value = employee.user_id;
+    document.getElementById('fullName').value = employee.full_name || '';
+    document.getElementById('email').value = employee.email || '';
+    document.getElementById('phone').value = employee.phone || '';
+    document.getElementById('password').value = '';
 
-    document.getElementById('employeeName').value = employee.full_name;
-    document.getElementById('employeeEmail').value = employee.email;
-    document.getElementById('employeePhone').value = employee.phone || '';
+    document.getElementById('designation').value = employee.designation || '';
+    document.getElementById('specialization').value = employee.specialization || '';
+    document.getElementById('joiningDate').value = employee.joining_date || '';
+    document.getElementById('salary').value = employee.salary || '';
 
-    document.getElementById('employeeDesignation').value = employee.designation || '';
-    document.getElementById('employeeSpecialization').value = employee.specialization || '';
-
-    document.getElementById('employeeJoiningDate').value = employee.joining_date || '';
-    document.getElementById('employeeSalary').value = employee.salary || '';
-
-    document.getElementById('employeeAvailability').value =
+    document.getElementById('availability').value =
         employee.availability_status || 'available';
 
-    document.getElementById('employeeAccountStatus').value =
-        employee.account_status || 'active';
+    document.getElementById('accountStatus').value =
+        employee.status || 'active';
 
-    document.getElementById('employeePasswordGroup').style.display = 'none';
-    document.getElementById('employeePassword').required = false;
+    document.getElementById('bio').value = employee.bio || '';
+    document.getElementById('profileImage').value = '';
 
-    document.getElementById('employeeAccountGroup').style.display = 'block';
+    document.getElementById('password').required = false;
+    document.getElementById('passwordNote').textContent = '(Optional)';
+    document.getElementById('passwordHelp').textContent =
+        'Leave blank to keep the current password.';
 
-    document.getElementById('employeeModal').classList.add('show');
-}
+    const preview = document.getElementById('currentImagePreview');
 
-
-function closeEmployeeModal() {
-
-    document.getElementById('employeeModal').classList.remove('show');
-
-}
-
-
-document.getElementById('employeeModal').addEventListener('click', function(event) {
-
-    if (event.target === this) {
-        closeEmployeeModal();
+    if (employee.profile_image) {
+        preview.innerHTML =
+            '<img class="image-preview" src="../' +
+            encodeURI(employee.profile_image) +
+            '" alt="Current profile image">';
+    } else {
+        preview.innerHTML = '';
     }
 
+    employeeModal.style.display = 'block';
+}
+
+
+function closeModal() {
+    employeeModal.style.display = 'none';
+}
+
+window.addEventListener('click', function(event) {
+    if (event.target === employeeModal) {
+        closeModal();
+    }
 });
-
 </script>
-
-<?php
-$stmt->close();
-include 'includes/footer.php';
-?>
 
 </body>
 </html>
