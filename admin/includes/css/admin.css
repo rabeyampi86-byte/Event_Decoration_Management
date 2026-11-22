@@ -5389,3 +5389,21 @@ textarea.form-control {
         padding: 20px 15px 25px;
     }
 }
+/* Assign Team Button */
+.booking-team-btn {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: 0.2s ease;
+}
+
+.booking-team-btn:hover {
+    background: #2e7d32;
+    color: #ffffff;
+}

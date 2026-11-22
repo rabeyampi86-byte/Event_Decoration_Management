@@ -102,15 +102,15 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css
 
                     <?php if ($userRole === 'customer'): ?>
 
-                        <a href="my_profile.php">
-                            <i class="fas fa-user"></i>
-                            My Profile
-                        </a>
+                        <?php if (isset($_SESSION['role']) &&
+                        $_SESSION['role'] === 'customer'): ?>
+                        <a href="my_profile.php">My Profile</a>
+                        <?php endif; ?>
 
-                        <a href="my_bookings.php">
-                            <i class="fas fa-calendar-check"></i>
-                            My Bookings
-                        </a>
+                        <?php if (isset($_SESSION['role']) &&
+                        $_SESSION['role'] === 'customer'): ?>
+                        <a href="my_bookings.php">My Bookings</a>
+                        <?php endif; ?>
 
                         <a href="cart.php">
                             <i class="fas fa-shopping-cart"></i>

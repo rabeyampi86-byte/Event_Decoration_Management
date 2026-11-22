@@ -1,13 +1,23 @@
 
 <?php
-include_once '../db.php';
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+include_once '../db.php';
+
 function galleryImageEscape($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+}
+
+function getMediaImageUrl($path) {
+    $path = trim((string)$path);
+
+    if ($path === '') {
+        return '';
+    }
+
+    return '../' . ltrim($path, '/');
 }
 
 $message = '';
@@ -20,61 +30,178 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
+    $redirectAlbumId = (int)($_POST['album_id'] ?? 0);
 
     /* ADD / UPDATE IMAGE */
 
     if ($action === 'save') {
 
         $galleryImageId = (int)($_POST['gallery_image_id'] ?? 0);
-        $albumId = (int)($_POST['album_id'] ?? 0);
+        $albumId = $redirectAlbumId;
         $imageId = (int)($_POST['image_id'] ?? 0);
         $caption = trim($_POST['caption'] ?? '');
         $sortOrder = (int)($_POST['sort_order'] ?? 0);
         $isVisible = isset($_POST['is_visible']) ? 1 : 0;
 
-        if ($albumId <= 0 || $imageId <= 0) {
+        $newFilePath = '';
+        $newMediaId = 0;
 
-            $error = 'Please select an album and an image.';
+        // Validate album
+        $check = $conn->prepare("
+            SELECT album_id
+            FROM gallery_albums
+            WHERE album_id = ?
+        ");
+
+        $check->bind_param("i", $albumId);
+        $check->execute();
+        $albumExists = $check->get_result()->fetch_assoc();
+        $check->close();
+
+        if ($albumId <= 0 || !$albumExists) {
+
+            $error = 'Please select a valid album.';
 
         } else {
 
-            // Validate album
-            $check = $conn->prepare("
-                SELECT album_id
-                FROM gallery_albums
-                WHERE album_id = ?
-            ");
+            /*
+             * OPTION 1:
+             * Upload a new image
+             */
 
-            $check->bind_param("i", $albumId);
-            $check->execute();
+            if (
+                isset($_FILES['new_image']) &&
+                $_FILES['new_image']['error'] !== UPLOAD_ERR_NO_FILE
+            ) {
 
-            $albumExists = $check->get_result()->fetch_assoc();
-            $check->close();
+                $file = $_FILES['new_image'];
 
-            // Validate media image
-            $check = $conn->prepare("
-                SELECT media_id
-                FROM media
-                WHERE media_id = ?
-            ");
+                if ($file['error'] !== UPLOAD_ERR_OK) {
 
-            $check->bind_param("i", $imageId);
-            $check->execute();
+                    $error = 'Image upload failed. Please try again.';
 
-            $imageExists = $check->get_result()->fetch_assoc();
-            $check->close();
+                } elseif ($file['size'] > 5 * 1024 * 1024) {
 
-            if (!$albumExists) {
+                    $error = 'Image size must not exceed 5 MB.';
 
-                $error = 'Selected album does not exist.';
+                } else {
 
-            } elseif (!$imageExists) {
+                    $allowedTypes = [
+                        'image/jpeg' => 'jpg',
+                        'image/png'  => 'png',
+                        'image/webp' => 'webp'
+                    ];
 
-                $error = 'Selected media image does not exist.';
+                    $fileInfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mimeType = finfo_file($fileInfo, $file['tmp_name']);
+                    finfo_close($fileInfo);
 
-            } else {
+                    if (
+                        !isset($allowedTypes[$mimeType]) ||
+                        getimagesize($file['tmp_name']) === false
+                    ) {
 
-                // Prevent duplicate image inside the same album
+                        $error = 'Only JPG, PNG and WEBP images are allowed.';
+
+                    } else {
+
+                        $uploadDirectory = __DIR__ . '/../uploads/media/';
+
+                        if (
+                            !is_dir($uploadDirectory) &&
+                            !mkdir($uploadDirectory, 0755, true)
+                        ) {
+                            $error = 'Unable to create media upload folder.';
+                        } else {
+
+                            $extension = $allowedTypes[$mimeType];
+
+                            $newFileName = bin2hex(random_bytes(16))
+                                         . '.' . $extension;
+
+                            $destination = $uploadDirectory . $newFileName;
+
+                            if (move_uploaded_file($file['tmp_name'], $destination)) {
+
+                                $newFilePath = 'uploads/media/' . $newFileName;
+
+                                $originalFileName = basename($file['name']);
+
+                                // Add uploaded image to Media Library
+                                $stmt = $conn->prepare("
+                                    INSERT INTO media
+                                    (
+                                        file_name,
+                                        file_path,
+                                        file_type
+                                    )
+                                    VALUES (?, ?, ?)
+                                ");
+
+                                $stmt->bind_param(
+                                    "sss",
+                                    $originalFileName,
+                                    $newFilePath,
+                                    $mimeType
+                                );
+
+                                if ($stmt->execute()) {
+
+                                    $newMediaId = (int)$conn->insert_id;
+                                    $imageId = $newMediaId;
+
+                                } else {
+
+                                    $error = 'Unable to save image information in Media Library.';
+                                    @unlink($destination);
+
+                                }
+
+                                $stmt->close();
+
+                            } else {
+
+                                $error = 'Unable to upload image to the server.';
+
+                            }
+                        }
+                    }
+                }
+            }
+
+            /*
+             * OPTION 2:
+             * Select an existing Media Library image
+             */
+
+            if (!$error && $imageId <= 0) {
+
+                $error = 'Please upload a new image or select an existing image.';
+            }
+
+            // Validate selected media image
+            if (!$error) {
+
+                $check = $conn->prepare("
+                    SELECT media_id
+                    FROM media
+                    WHERE media_id = ?
+                ");
+
+                $check->bind_param("i", $imageId);
+                $check->execute();
+
+                $imageExists = $check->get_result()->fetch_assoc();
+                $check->close();
+
+                if (!$imageExists) {
+                    $error = 'Selected media image does not exist.';
+                }
+            }
+
+            // Prevent duplicate image inside the same album
+            if (!$error) {
+
                 $duplicate = $conn->prepare("
                     SELECT gallery_image_id
                     FROM gallery_images
@@ -95,72 +222,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $duplicate->close();
 
                 if ($duplicateExists) {
-
                     $error = 'This image already exists in the selected album.';
+                }
+            }
+
+            // Save gallery image
+            if (!$error) {
+
+                $captionValue = ($caption === '') ? null : $caption;
+
+                if ($galleryImageId > 0) {
+
+                    $stmt = $conn->prepare("
+                        UPDATE gallery_images
+                        SET album_id = ?,
+                            image_id = ?,
+                            caption = ?,
+                            sort_order = ?,
+                            is_visible = ?
+                        WHERE gallery_image_id = ?
+                    ");
+
+                    $stmt->bind_param(
+                        "iisiii",
+                        $albumId,
+                        $imageId,
+                        $captionValue,
+                        $sortOrder,
+                        $isVisible,
+                        $galleryImageId
+                    );
 
                 } else {
 
-                    $captionValue = ($caption === '') ? null : $caption;
+                    $stmt = $conn->prepare("
+                        INSERT INTO gallery_images
+                        (
+                            album_id,
+                            image_id,
+                            caption,
+                            sort_order,
+                            is_visible
+                        )
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
 
-                    if ($galleryImageId > 0) {
+                    $stmt->bind_param(
+                        "iisii",
+                        $albumId,
+                        $imageId,
+                        $captionValue,
+                        $sortOrder,
+                        $isVisible
+                    );
+                }
 
-                        $stmt = $conn->prepare("
-                            UPDATE gallery_images
-                            SET album_id = ?,
-                                image_id = ?,
-                                caption = ?,
-                                sort_order = ?,
-                                is_visible = ?
-                            WHERE gallery_image_id = ?
-                        ");
+                if ($stmt && $stmt->execute()) {
 
-                        $stmt->bind_param(
-                            "iisiii",
-                            $albumId,
-                            $imageId,
-                            $captionValue,
-                            $sortOrder,
-                            $isVisible,
-                            $galleryImageId
-                        );
+                    $stmt->close();
 
-                    } else {
+                    header(
+                        "Location: gallery_images.php?album_id="
+                        . $albumId . "&saved=1"
+                    );
+                    exit;
 
-                        $stmt = $conn->prepare("
-                            INSERT INTO gallery_images
-                            (
-                                album_id,
-                                image_id,
-                                caption,
-                                sort_order,
-                                is_visible
-                            )
-                            VALUES (?, ?, ?, ?, ?)
-                        ");
+                } else {
 
-                        $stmt->bind_param(
-                            "iisii",
-                            $albumId,
-                            $imageId,
-                            $captionValue,
-                            $sortOrder,
-                            $isVisible
-                        );
-                    }
-
-                    if ($stmt && $stmt->execute()) {
-
-                        header("Location: gallery-images.php?album_id=" . $albumId . "&saved=1");
-                        exit;
-
-                    } else {
-
-                        $error = 'Unable to save gallery image.';
-
-                    }
+                    $error = 'Unable to save gallery image.';
 
                     if ($stmt) {
                         $stmt->close();
+                    }
+                }
+            }
+
+            /*
+             * If a newly uploaded image could not be added
+             * to the gallery, remove its Media Library record
+             * and uploaded file.
+             */
+
+            if ($error && $newMediaId > 0) {
+
+                $deleteMedia = $conn->prepare("
+                    DELETE FROM media
+                    WHERE media_id = ?
+                ");
+
+                $deleteMedia->bind_param("i", $newMediaId);
+                $deleteMedia->execute();
+                $deleteMedia->close();
+
+                if ($newFilePath !== '') {
+                    $uploadedFile = __DIR__ . '/../' . $newFilePath;
+                    if (is_file($uploadedFile)) {
+                        @unlink($uploadedFile);
                     }
                 }
             }
@@ -172,7 +329,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'delete') {
 
         $galleryImageId = (int)($_POST['gallery_image_id'] ?? 0);
-        $albumId = (int)($_POST['album_id'] ?? 0);
 
         $stmt = $conn->prepare("
             DELETE FROM gallery_images
@@ -183,16 +339,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($stmt->execute()) {
 
-            header("Location: gallery-images.php?album_id=" . $albumId . "&deleted=1");
+            $stmt->close();
+
+            header(
+                "Location: gallery_images.php?album_id="
+                . $redirectAlbumId . "&deleted=1"
+            );
             exit;
 
         } else {
 
             $error = 'Unable to remove gallery image.';
+            $stmt->close();
 
         }
-
-        $stmt->close();
     }
 
     /* TOGGLE VISIBILITY */
@@ -200,7 +360,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($action === 'toggle') {
 
         $galleryImageId = (int)($_POST['gallery_image_id'] ?? 0);
-        $albumId = (int)($_POST['album_id'] ?? 0);
 
         $stmt = $conn->prepare("
             UPDATE gallery_images
@@ -212,16 +371,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($stmt->execute()) {
 
-            header("Location: gallery-images.php?album_id=" . $albumId . "&updated=1");
+            $stmt->close();
+
+            header(
+                "Location: gallery_images.php?album_id="
+                . $redirectAlbumId . "&updated=1"
+            );
             exit;
 
         } else {
 
             $error = 'Unable to update image visibility.';
+            $stmt->close();
 
         }
-
-        $stmt->close();
     }
 }
 
@@ -287,6 +450,7 @@ if (isset($_GET['edit'])) {
     $stmt->close();
 
     if ($editImage) {
+
         $selectedAlbumId = (int)$editImage['album_id'];
 
         $stmt = $conn->prepare("
@@ -300,8 +464,11 @@ if (isset($_GET['edit'])) {
 
         $selectedAlbum = $stmt->get_result()->fetch_assoc();
         $stmt->close();
+
     } else {
+
         $error = 'Gallery image not found.';
+
     }
 }
 
@@ -335,14 +502,6 @@ $stats = [
     'hidden' => 0
 ];
 
-$statsSql = "
-    SELECT
-        COUNT(*) AS total,
-        COALESCE(SUM(is_visible = 1), 0) AS visible,
-        COALESCE(SUM(is_visible = 0), 0) AS hidden
-    FROM gallery_images
-";
-
 if ($selectedAlbumId > 0) {
 
     $stmt = $conn->prepare("
@@ -362,7 +521,13 @@ if ($selectedAlbumId > 0) {
 
 } else {
 
-    $statsResult = $conn->query($statsSql);
+    $statsResult = $conn->query("
+        SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(is_visible = 1), 0) AS visible,
+            COALESCE(SUM(is_visible = 0), 0) AS hidden
+        FROM gallery_images
+    ");
 
     if ($statsResult) {
         $stats = $statsResult->fetch_assoc();
@@ -411,7 +576,6 @@ if ($selectedAlbumId > 0) {
         ORDER BY a.sort_order ASC, gi.sort_order ASC, gi.gallery_image_id DESC
     ");
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -634,12 +798,18 @@ if ($selectedAlbumId > 0) {
 
         .image-preview {
             display: none;
-            width: 110px;
-            height: 85px;
+            width: 130px;
+            height: 100px;
             object-fit: cover;
             border-radius: 8px;
             margin-top: 8px;
             border: 1px solid #e2e8f0;
+        }
+
+        .upload-help {
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 400;
         }
 
         .gallery-grid {
@@ -807,7 +977,7 @@ if ($selectedAlbumId > 0) {
 
                 <h3>Select Gallery Album</h3>
 
-                <form method="GET" action="gallery-images.php" class="album-filter">
+                <form method="GET" action="gallery_images.php" class="album-filter">
 
                     <div class="form-group">
 
@@ -846,7 +1016,7 @@ if ($selectedAlbumId > 0) {
                         View Album
                     </button>
 
-                    <a href="gallery-images.php" class="btn btn-secondary">
+                    <a href="gallery_images.php" class="btn btn-secondary">
                         Show All
                     </a>
 
@@ -892,13 +1062,19 @@ if ($selectedAlbumId > 0) {
                     <?php echo $editImage ? 'Edit Gallery Image' : 'Add Image to Gallery'; ?>
                 </h3>
 
-                <form method="POST" action="gallery-images.php">
+                <form method="POST"
+                      action="gallery_images.php"
+                      enctype="multipart/form-data">
 
                     <input type="hidden" name="action" value="save">
 
                     <input type="hidden"
                            name="gallery_image_id"
                            value="<?php echo (int)($editImage['gallery_image_id'] ?? 0); ?>">
+
+                    <input type="hidden"
+                           name="album_id"
+                           value="<?php echo (int)($editImage['album_id'] ?? $selectedAlbumId); ?>">
 
                     <div class="form-grid">
 
@@ -941,21 +1117,38 @@ if ($selectedAlbumId > 0) {
                         </div>
 
                         <div class="form-group">
-                            <label>Select Image from Media Library *</label>
+                            <label>Upload New Image</label>
+
+                            <input type="file"
+                                   name="new_image"
+                                   id="newGalleryImage"
+                                   accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+
+                            <span class="upload-help">
+                                JPG, PNG or WEBP. Maximum file size: 5 MB.
+                                If you upload a new image, it will be used instead of the selected Media Library image.
+                            </span>
+
+                            <img id="newImagePreview"
+                                 class="image-preview"
+                                 alt="New image preview">
+                        </div>
+
+                        <div class="form-group full">
+                            <label>Select Existing Image from Media Library</label>
 
                             <select name="image_id"
                                     id="mediaImageSelect"
-                                    required
                                     onchange="previewGalleryImage()">
 
-                                <option value="">Choose Image</option>
+                                <option value="">Choose an existing image (optional)</option>
 
                                 <?php if ($mediaItems): ?>
                                     <?php while ($media = $mediaItems->fetch_assoc()): ?>
 
                                         <option
                                             value="<?php echo (int)$media['media_id']; ?>"
-                                            data-image="<?php echo galleryImageEscape($media['file_path']); ?>"
+                                            data-image="<?php echo galleryImageEscape(getMediaImageUrl($media['file_path'])); ?>"
                                             <?php echo (int)($editImage['image_id'] ?? 0) === (int)$media['media_id'] ? 'selected' : ''; ?>>
 
                                             <?php echo galleryImageEscape($media['file_name']); ?>
@@ -997,7 +1190,7 @@ if ($selectedAlbumId > 0) {
                                 <input type="checkbox"
                                        name="is_visible"
                                        value="1"
-                                       <?php echo !isset($editImage) || (int)$editImage['is_visible'] === 1 ? 'checked' : ''; ?>>
+                                       <?php echo !$editImage || (int)$editImage['is_visible'] === 1 ? 'checked' : ''; ?>>
 
                                 Show this image on the website
 
@@ -1017,7 +1210,7 @@ if ($selectedAlbumId > 0) {
 
                         <?php if ($editImage): ?>
 
-                            <a href="gallery-images.php?album_id=<?php echo (int)$selectedAlbumId; ?>"
+                            <a href="gallery_images.php?album_id=<?php echo (int)$selectedAlbumId; ?>"
                                class="btn btn-secondary">
                                 Cancel
                             </a>
@@ -1049,9 +1242,10 @@ if ($selectedAlbumId > 0) {
                             <div class="gallery-card">
 
                                 <img
-                                    src="<?php echo galleryImageEscape($image['file_path']); ?>"
+                                    src="<?php echo galleryImageEscape(getMediaImageUrl($image['file_path'])); ?>"
                                     class="gallery-card-image"
-                                    alt="<?php echo galleryImageEscape($image['caption'] ?: $image['file_name']); ?>">
+                                    alt="<?php echo galleryImageEscape($image['caption'] ?: $image['file_name']); ?>"
+                                >
 
                                 <div class="gallery-card-body">
 
@@ -1092,7 +1286,7 @@ if ($selectedAlbumId > 0) {
 
                                     <div class="gallery-actions">
 
-                                        <a href="gallery-images.php?edit=<?php echo (int)$image['gallery_image_id']; ?>"
+                                        <a href="gallery_images.php?edit=<?php echo (int)$image['gallery_image_id']; ?>"
                                            class="btn btn-light"
                                            title="Edit">
 
@@ -1101,7 +1295,7 @@ if ($selectedAlbumId > 0) {
 
                                         </a>
 
-                                        <form method="POST" action="gallery-images.php">
+                                        <form method="POST" action="gallery_images.php">
 
                                             <input type="hidden"
                                                    name="action"
@@ -1126,7 +1320,7 @@ if ($selectedAlbumId > 0) {
                                         </form>
 
                                         <form method="POST"
-                                              action="gallery-images.php"
+                                              action="gallery_images.php"
                                               onsubmit="return confirm('Remove this image from the gallery? The original media file will not be deleted.');">
 
                                             <input type="hidden"
@@ -1170,7 +1364,7 @@ if ($selectedAlbumId > 0) {
                             </div>
 
                             <p>
-                                Select an album and add images from your Media Library.
+                                Upload a new image or select one from your Media Library.
                             </p>
 
                         </div>
@@ -1206,6 +1400,26 @@ function previewGalleryImage() {
         preview.style.display = 'none';
     }
 }
+
+/* Preview newly uploaded image */
+
+document.getElementById('newGalleryImage').addEventListener('change', function () {
+
+    const preview = document.getElementById('newImagePreview');
+    const file = this.files[0];
+
+    if (file) {
+
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+
+    } else {
+
+        preview.src = '';
+        preview.style.display = 'none';
+
+    }
+});
 
 document.addEventListener('DOMContentLoaded', function () {
     previewGalleryImage();

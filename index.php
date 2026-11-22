@@ -1161,6 +1161,7 @@ $aboutImage = !empty($aboutIntro['file_path'])
 
     <!-- ABOUT -->
     
+<
 <!-- ABOUT SECTION -->
 <section class="section about-section">
 
@@ -1244,6 +1245,7 @@ $aboutImage = !empty($aboutIntro['file_path'])
     </div>
 
 </section>
+
 
 
 

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 21, 2026 at 03:27 AM
+-- Generation Time: Nov 22, 2026 at 01:20 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -87,7 +87,8 @@ CREATE TABLE `bookings` (
 INSERT INTO `bookings` (`booking_id`, `customer_id`, `package_id`, `venue_id`, `package_name_snapshot`, `package_price_snapshot`, `package_description_snapshot`, `event_date`, `start_time`, `end_time`, `guest_count`, `status`, `quoted_total`, `event_location`, `special_request`, `created_at`, `updated_at`) VALUES
 (1, 4, 1, NULL, 'Premium Wedding Package', 35000.00, 'Premium wedding stage, floral decoration, lighting and entrance setup.', '2026-10-30', '10:00:00', '18:00:00', 250, 'completed', 35000.00, 'Dhanmondi, Dhaka', 'Completed sample wedding booking.', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
 (2, 5, 2, NULL, 'Engagement Special Package', 18000.00, 'Stage decoration, flower arrangement and entrance decoration.', '2026-11-25', '09:00:00', '17:00:00', 120, 'confirmed', 18000.00, 'Uttara, Dhaka', 'Confirmed sample engagement booking.', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
-(3, 6, 3, NULL, 'Birthday Celebration Package', 10000.00, 'Birthday backdrop, balloon decoration and lighting setup.', '2026-12-05', '11:00:00', '19:00:00', 80, 'pending', NULL, 'Mirpur, Dhaka', 'Pending sample birthday booking.', '2026-11-18 06:33:08', '2026-11-18 06:33:08');
+(3, 6, 3, NULL, 'Birthday Celebration Package', 10000.00, 'Birthday backdrop, balloon decoration and lighting setup.', '2026-12-05', '11:00:00', '19:00:00', 80, 'pending', NULL, 'Mirpur, Dhaka', 'Pending sample birthday booking.', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
+(4, 4, 1, NULL, 'Premium Wedding Package', 150000.00, 'Premium wedding stage, floral decoration, lighting and entrance setup.', '2026-11-25', '11:46:00', '13:48:00', 50, 'confirmed', 150000.00, 'Dhaka', '', '2026-11-22 05:48:03', '2026-11-22 05:48:45');
 
 -- --------------------------------------------------------
 
@@ -206,6 +207,8 @@ CREATE TABLE `employee_profiles` (
   `user_id` int(10) UNSIGNED NOT NULL,
   `designation` varchar(120) DEFAULT NULL,
   `specialization` varchar(150) DEFAULT NULL,
+  `profile_image` varchar(500) DEFAULT NULL,
+  `bio` text DEFAULT NULL,
   `joining_date` date DEFAULT NULL,
   `salary` decimal(12,2) DEFAULT NULL,
   `availability_status` enum('available','busy','unavailable') DEFAULT 'available',
@@ -216,10 +219,34 @@ CREATE TABLE `employee_profiles` (
 -- Dumping data for table `employee_profiles`
 --
 
-INSERT INTO `employee_profiles` (`employee_id`, `user_id`, `designation`, `specialization`, `joining_date`, `salary`, `availability_status`, `created_at`) VALUES
-(3, 10, 'Decoration Manager', 'Wedding Decoration', '2025-01-10', 25000.00, 'available', '2026-11-18 06:33:08'),
-(4, 11, 'Event Coordinator', 'Event Management', '2025-03-15', 20000.00, 'available', '2026-11-18 06:33:08'),
-(5, 12, NULL, NULL, '2026-11-18', 30000.00, 'unavailable', '2026-11-18 09:16:28');
+INSERT INTO `employee_profiles` (`employee_id`, `user_id`, `designation`, `specialization`, `profile_image`, `bio`, `joining_date`, `salary`, `availability_status`, `created_at`) VALUES
+(3, 10, 'Owner & Founder', 'Event Management & Business Administration', 'uploads/employees/e4aba99955528b34d5115773fdc59ed6.jpg', 'Mst. Rabeya is the founder and owner of DecorEase, responsible for business management, strategic planning, and ensuring quality event decoration services.', '2025-01-10', 50000.00, 'available', '2026-11-18 06:33:08'),
+(4, 11, 'Event Coordinator', 'Event Management', 'uploads/employees/b85e06cc67609acf25575a371a2f6a77.jpg', 'Mehedi Hasan is an organized and dedicated Event Coordinator responsible for planning, scheduling, and coordinating event activities. Focuses on managing event timelines, communicating with clients and team members, and ensuring that every event runs smoothly and efficiently.', '2025-03-15', 20000.00, 'available', '2026-11-18 06:33:08'),
+(5, 12, 'Event Manager', 'Event Planning & Managemen', 'uploads/employees/a009386caf3713233fa4a0e45447c4f4.jpg', 'Kazi Arifur Rahman is a member of the DecorEase team, contributing to event planning and management. He is involved in coordinating event-related activities and supporting the delivery of organized celebration experiences.', '2025-01-10', 30000.00, 'unavailable', '2026-11-18 09:16:28'),
+(6, 13, 'Senior Decoration Designer', 'Wedding & Event Styling', 'uploads/employees/21aad1fe1e6fa70c3a1bb2bb41430843.jpg', 'Nusrat Jahan is a creative Senior Decoration Designer specializing in wedding and event styling. She responsible for developing decoration concepts, selecting color combinations, planning venue layouts, and creating elegant event environments that reflect each client\'s preferences.', '2025-01-10', 25000.00, 'available', '2026-11-22 03:53:10'),
+(7, 14, 'Photography & Videography Specialist', 'Event Photography & Videography', 'uploads/employees/5c10625772e7c0495348eaa92e8201d2.jpg', 'Tanvir Ahmed is a dedicated Photography and Videography Specialist focused on capturing the special moments of every celebration. He is responsible for event coverage, creative photography, video recording, and delivering high-quality visual memories for clients.', NULL, 22000.00, 'available', '2026-11-22 03:56:13'),
+(8, 15, 'Venue & Logistics Coordinator', 'Venue Setup & Event Logistics', 'uploads/employees/af425b554bf0c11461f0230e45c1db79.jpg', 'Saimul Islam is a detail-oriented Venue and Logistics Coordinator responsible for managing venue arrangements, coordinating decoration materials, and organizing event setup requirements. He works closely with the event and decoration teams to ensure smooth preparation and timely execution of every event.', '2025-11-05', 20000.00, 'available', '2026-11-22 03:59:46'),
+(9, 16, 'Videographer', 'Corporate Event Videography', NULL, 'Experienced in recording corporate programs, birthday celebrations and social events.', '2025-08-06', 18000.00, 'available', '2026-11-22 06:41:24'),
+(10, 17, 'Videographer', 'Wedding Cinematography', NULL, 'Professional event videographer specializing in wedding films and cinematic event coverage.', '2025-06-11', 20000.00, 'available', '2026-11-22 06:43:00'),
+(11, 18, 'Photographer', 'Portrait and Event Photography', NULL, 'Skilled photographer with experience in birthday, corporate and traditional event photography.', '2026-02-12', 16000.00, 'available', '2026-11-22 06:44:04'),
+(12, 19, 'Photographer', 'Wedding Photography', NULL, 'Experienced event photographer specializing in wedding, engagement and family event photography.', '2026-02-12', 16000.00, 'available', '2026-11-22 06:45:46'),
+(13, 20, 'Video Editor', 'Wedding Film Editing', NULL, 'Creative video editor specializing in cinematic wedding highlights, event films and professional video editing.', '2026-02-12', 22000.00, 'available', '2026-11-22 06:47:50'),
+(14, 21, 'Lead Decorator', 'Wedding Stage Decoration', NULL, 'Experienced lead decorator specializing in wedding stages, venue styling and event decoration management.', '2026-02-12', 25000.00, 'available', '2026-11-22 06:49:11'),
+(15, 22, 'Lead Decorator', 'Corporate and Birthday Decoration', NULL, 'Skilled decorator experienced in planning and managing modern event decoration setups.', '2026-02-12', 22000.00, 'available', '2026-11-22 06:50:40'),
+(16, 23, 'Flower Decorator', 'Floral Stage Decoration', NULL, 'Experienced in creating beautiful floral arrangements for wedding stages and special occasions.', '2026-02-11', 18000.00, 'available', '2026-11-22 06:52:18'),
+(17, 24, 'Flower Decorator', 'Floral Stage Decoration', NULL, 'Skilled in floral table arrangements, entrance decoration and decorative flower styling.', '2026-02-11', 14500.00, 'available', '2026-11-22 06:53:28'),
+(18, 25, 'Setup Assistant', '', NULL, '', '2026-02-11', 12500.00, 'available', '2026-11-22 07:00:21'),
+(19, 26, 'Setup Assistant', '', NULL, '', NULL, 12000.00, 'available', '2026-11-22 07:01:02'),
+(20, 27, 'Head Chef', 'Bengali and Wedding Cuisine', NULL, 'Experienced chef specializing in Bengali cuisine, wedding menus and large event catering.', '2026-07-09', 28000.00, 'available', '2026-11-22 07:02:24'),
+(21, 28, 'Assistant Chef', 'Bengali Cuisine', NULL, 'Assists the head chef in food preparation, catering operations and kitchen management.', '2026-07-09', 16000.00, 'available', '2026-11-22 07:04:11'),
+(22, 29, 'Assistant Chef', 'Catering Preparation', NULL, 'Assists the head chef in food preparation, catering operations and kitchen management.', '2026-07-09', 15000.00, 'available', '2026-11-22 07:05:08'),
+(23, 30, 'Serving Team', '', NULL, '', '2026-02-05', 10000.00, 'available', '2026-11-22 07:06:10'),
+(24, 31, 'Serving Team', '', NULL, '', '2025-08-13', 100000.00, 'available', '2026-11-22 07:06:58'),
+(25, 32, 'Serving Team', '', NULL, '', '2026-04-15', 10000.00, 'available', '2026-11-22 07:07:42'),
+(26, 33, 'Serving Team', '', NULL, '', NULL, 9000.00, 'available', '2026-11-22 07:08:32'),
+(27, 34, 'Videographer', 'Corporate Event Videography', NULL, '', '2025-12-10', 18000.00, 'available', '2026-11-22 07:10:59'),
+(28, 35, 'Head Chef', 'Bengali and Wedding Cuisine', NULL, '', '2025-12-10', 25000.00, 'available', '2026-11-22 07:12:00'),
+(29, 36, 'Video Editor', '', NULL, '', '2025-02-05', 22000.00, 'available', '2026-11-22 07:18:22');
 
 -- --------------------------------------------------------
 
@@ -351,6 +378,14 @@ CREATE TABLE `gallery_albums` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `gallery_albums`
+--
+
+INSERT INTO `gallery_albums` (`album_id`, `album_name`, `description`, `category_id`, `cover_image_id`, `sort_order`, `status`, `created_at`) VALUES
+(1, 'Wedding', NULL, 1, 5, 5, 'active', '2026-11-22 04:08:53'),
+(2, 'Birthday', NULL, 2, 9, 5, 'active', '2026-11-22 04:47:49');
+
 -- --------------------------------------------------------
 
 --
@@ -365,6 +400,20 @@ CREATE TABLE `gallery_images` (
   `sort_order` int(11) DEFAULT 0,
   `is_visible` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `gallery_images`
+--
+
+INSERT INTO `gallery_images` (`gallery_image_id`, `album_id`, `image_id`, `caption`, `sort_order`, `is_visible`) VALUES
+(1, 1, 6, 'Beautiful Wedding Gate', 1, 1),
+(2, 1, 4, NULL, 1, 1),
+(3, 1, 7, NULL, 1, 1),
+(4, 1, 8, NULL, 1, 1),
+(5, 2, 9, NULL, 1, 1),
+(6, 2, 10, NULL, 1, 1),
+(7, 2, 11, NULL, 0, 1),
+(8, 1, 12, NULL, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -418,6 +467,13 @@ CREATE TABLE `lighting_equipment` (
   `is_active` tinyint(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `lighting_equipment`
+--
+
+INSERT INTO `lighting_equipment` (`lighting_id`, `equipment_name`, `description`, `image_id`, `is_active`) VALUES
+(1, 'LED Par Light', '', NULL, 1);
+
 -- --------------------------------------------------------
 
 --
@@ -442,8 +498,16 @@ INSERT INTO `media` (`media_id`, `file_name`, `file_path`, `file_type`, `alt_tex
 (1, 'cr1.png', 'uploads/packages/package_e5ef67c6f5b35ea8e2398374.png', 'image/png', 'Product Launche Package Image', 1, '2026-11-18 10:12:39'),
 (2, 'b.jpg', 'uploads/packages/package_5f620a258d0fa5fbf62418fa.jpg', 'image/jpeg', 'Birthday Celebration Package Package Image', 1, '2026-11-18 10:16:00'),
 (3, 'en3.jpg', 'uploads/packages/package_bd4b2700cddeb819d8d19b0f.jpg', 'image/jpeg', 'Engagement Special Package Package Image', 1, '2026-11-19 05:33:51'),
-(4, 'wed1.webp', 'media/a9f4465fdcf8628026493b21126c76f0.webp', 'image/webp', 'Premium Wedding Package Package Image', 1, '2026-11-19 05:34:48'),
-(5, 'Wedding gate.png', 'media/2a2ceabd747b89b89e1c3192c0d7a5ed.png', 'image/png', 'Beautiful wedding gate.', NULL, '2026-11-20 05:01:44');
+(4, 'wed1.webp', 'uploads/media/a9f4465fdcf8628026493b21126c76f0.webp', 'image/webp', 'Premium Wedding Package Package Image', 1, '2026-11-19 05:34:48'),
+(5, 'Wedding gate.png', 'uploads/media/2a2ceabd747b89b89e1c3192c0d7a5ed.png', 'image/png', 'Beautiful wedding gate.', NULL, '2026-11-20 05:01:44'),
+(6, 'wd.jpg', 'uploads/packages/package_cdce3e91ee56694347df004c.jpg', 'image/jpeg', 'Premium Wedding Package Package Image', 1, '2026-11-22 04:01:51'),
+(7, 'wed2.png', 'uploads/media/7dab88c2302c1d5d585860b934fb0463.png', 'image/png', NULL, NULL, '2026-11-22 04:46:56'),
+(8, 'wed1.png', 'uploads/media/0b4f0a35527910dfff0bbab164188359.png', 'image/png', NULL, NULL, '2026-11-22 04:47:14'),
+(9, 'b.jpg', 'uploads/media/7d094e73f2d13f8e76aec1de06e8324a.jpg', 'image/jpeg', NULL, NULL, '2026-11-22 04:48:28'),
+(10, 'b.png', 'uploads/media/07b556f08c7d2c04c28b1f9f2c4f5c3c.png', 'image/png', NULL, NULL, '2026-11-22 04:49:01'),
+(11, 'h3.jpg', 'uploads/media/256b0175639392c64522535e2147eafc.jpg', 'image/jpeg', NULL, NULL, '2026-11-22 04:49:55'),
+(12, 'wed7.png', 'uploads/media/e96c3c90202fb8558567f7275703b343.png', 'image/png', NULL, NULL, '2026-11-22 04:50:38'),
+(13, 'h1.png', 'uploads/packages/package_fb2eb69d22002766c7b8ae6d.png', 'image/png', 'Hould Event Package Image', 1, '2026-11-22 05:02:38');
 
 -- --------------------------------------------------------
 
@@ -526,10 +590,11 @@ CREATE TABLE `packages` (
 --
 
 INSERT INTO `packages` (`package_id`, `category_id`, `package_name`, `slug`, `short_description`, `description`, `base_price`, `guest_capacity`, `image_id`, `is_featured`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 'Premium Wedding Package', 'premium-wedding-package', 'Elegant premium wedding decoration', 'Premium wedding stage, floral decoration, lighting and entrance setup.', 150000.00, 400, 4, 1, 'active', '2026-11-18 06:33:08', '2026-11-19 05:35:49'),
+(1, 1, 'Premium Wedding Package', 'premium-wedding-package', 'Elegant premium wedding decoration', 'Premium wedding stage, floral decoration, lighting and entrance setup.', 150000.00, 400, 6, 1, 'active', '2026-11-18 06:33:08', '2026-11-22 04:01:51'),
 (2, 6, 'Engagement Special Package', 'engagement-special-package', 'Beautiful engagement ceremony decoration', 'Stage decoration, flower arrangement and entrance decoration.', 18000.00, 150, 3, 1, 'active', '2026-11-18 06:33:08', '2026-11-19 05:33:51'),
 (3, 2, 'Birthday Celebration Package', 'birthday-celebration-package', 'Join us for a joyful and memorable birthday celebration filled with laughter, happiness, and unforgettable moments and make your birthday colorful and enjoyable with us.', '# A Day to Remember: Celebrating Life, Love & Happiness\r\n\r\n**Event Description:**\r\n\r\nJoin us for a joyful and memorable birthday celebration filled with laughter, happiness, and unforgettable moments. Whether it\'s a milestone birthday or a special annual celebration, we create a wonderful atmosphere where family, friends, and loved ones come together to make the day truly special.\r\n\r\nOur birthday celebration is thoughtfully designed to bring your vision to life with beautiful decorations, creative themes, delicious food, exciting entertainment, and personalized arrangements. From elegant birthday setups to fun-filled parties, every detail is carefully planned to ensure a delightful experience for the birthday celebrant and all the guests.\r\n\r\n**What to Expect:**\r\n\r\n- **Welcome & Reception:** A warm welcome for guests with beautiful entrance decorations and a photo-friendly reception area.\r\n- **Themed Birthday Decoration:** Customized stage decoration, balloons, flowers, lighting, and creative backdrops based on the chosen theme.\r\n- **Cake Cutting Ceremony:** A special birthday cake presentation followed by a memorable cake-cutting moment.\r\n- **Entertainment & Activities:** Exciting music, fun games, interactive activities, and entertainment for guests of all ages.\r\n- **Food & Refreshments:** Delicious food, snacks, desserts, and refreshments to make the celebration even more enjoyable.\r\n- **Photography & Memories:** Professional photography arrangements to capture every special moment of the celebration.\r\n\r\n**Event Details:**\r\n\r\n- **Date:** [Day, Month Date, Year]\r\n- **Time:** [Start Time] – [End Time]\r\n- **Venue:** [Venue Name, Full Address]\r\n- **Birthday Celebrant:** [Name of Birthday Person]\r\n- **Age / Milestone:** [Birthday Age]\r\n- **Theme:** [Selected Birthday Theme]\r\n- **Dress Code:** [Dress Code / Theme-Based Outfit]\r\n\r\nMake this birthday truly unforgettable with a celebration filled with joy, love, and beautiful memories. Let us take care of every detail while you enjoy the special moments with your loved ones.\r\n\r\nWe look forward to celebrating this wonderful occasion with you and making it a day to remember!', 15000.00, 100, 2, 1, 'active', '2026-11-18 06:33:08', '2026-11-18 10:19:43'),
-(4, 5, 'Product Launche', 'Product Launche', 'Join us for an exclusive unveiling of our latest innovation. Experience the future industries firsthand as we introduce the product.', '# Unveiling the Future: The Official Launch of [Product Name]\r\n\r\n**Event Description:**\r\n\r\nJoin us for an exclusive corporate gathering as **[Company Name]** proudly introduces our latest innovation—**[Product Name]**. Designed to redefine industry standards and empower businesses and users, this launch marks a significant milestone in our journey toward excellence.\r\n\r\nDuring this event, attendees will get a firsthand look at how **[Product Name]** solves key challenges and creates new opportunities in the **[Industry/Sector Name]**. Our leadership and product development teams will walk you through its core features, real-world applications, and the vision behind its creation.\r\n\r\n**What to Expect:**\r\n\r\n- **Keynote Address:** Insights into industry trends and our strategic vision from [Name/Title of Keynote Speaker, e.g., our CEO].\r\n- **Live Product Demonstration:** An interactive showcase highlighting the capabilities and benefits of [Product Name].\r\n- **Q&A Session:** An open floor to engage directly with our product engineers and leadership team.\r\n- **Networking Reception:** Connect with industry peers, partners, and innovators over refreshments.\r\n\r\n**Event Details:**\r\n\r\n- **Date:** [Day, Month Date, Year]\r\n- **Time:** [Start Time] – [End Time]\r\n- **Venue:** [Venue Name, Full Address / Virtual Event Link]\r\n- **Dress Code:** Business Formal / Business Casual\r\n\r\nBe part of this exciting new chapter with us. Spaces are limited, so please confirm your attendance by **[RSVP Date]** via [Registration Link/Email].\r\n\r\nWe look forward to welcoming you and shaping the future together!', 70000.00, 200, 1, 1, 'active', '2026-11-18 10:12:39', '2026-11-18 10:12:39');
+(4, 5, 'Product Launche', 'Product Launche', 'Join us for an exclusive unveiling of our latest innovation. Experience the future industries firsthand as we introduce the product.', '# Unveiling the Future: The Official Launch of [Product Name]\r\n\r\n**Event Description:**\r\n\r\nJoin us for an exclusive corporate gathering as **[Company Name]** proudly introduces our latest innovation—**[Product Name]**. Designed to redefine industry standards and empower businesses and users, this launch marks a significant milestone in our journey toward excellence.\r\n\r\nDuring this event, attendees will get a firsthand look at how **[Product Name]** solves key challenges and creates new opportunities in the **[Industry/Sector Name]**. Our leadership and product development teams will walk you through its core features, real-world applications, and the vision behind its creation.\r\n\r\n**What to Expect:**\r\n\r\n- **Keynote Address:** Insights into industry trends and our strategic vision from [Name/Title of Keynote Speaker, e.g., our CEO].\r\n- **Live Product Demonstration:** An interactive showcase highlighting the capabilities and benefits of [Product Name].\r\n- **Q&A Session:** An open floor to engage directly with our product engineers and leadership team.\r\n- **Networking Reception:** Connect with industry peers, partners, and innovators over refreshments.\r\n\r\n**Event Details:**\r\n\r\n- **Date:** [Day, Month Date, Year]\r\n- **Time:** [Start Time] – [End Time]\r\n- **Venue:** [Venue Name, Full Address / Virtual Event Link]\r\n- **Dress Code:** Business Formal / Business Casual\r\n\r\nBe part of this exciting new chapter with us. Spaces are limited, so please confirm your attendance by **[RSVP Date]** via [Registration Link/Email].\r\n\r\nWe look forward to welcoming you and shaping the future together!', 70000.00, 200, 1, 1, 'active', '2026-11-18 10:12:39', '2026-11-18 10:12:39'),
+(5, 3, 'Hould Event', 'holud-event', '', 'Make your Holud event more beautiful with us.', 25000.00, 150, 13, 1, 'active', '2026-11-22 05:02:38', '2026-11-22 05:02:38');
 
 -- --------------------------------------------------------
 
@@ -727,6 +792,15 @@ CREATE TABLE `page_sections` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data for table `page_sections`
+--
+
+INSERT INTO `page_sections` (`section_id`, `page_id`, `section_key`, `section_title`, `heading`, `subheading`, `content`, `image_id`, `button_text`, `button_link`, `sort_order`, `is_visible`, `created_at`, `updated_at`) VALUES
+(1, 2, 'about_intro', 'About Introduction', 'Creating Moments, Designing Memories', 'ABOUT DECOR EASE', 'DecorEase is a professional event decoration company dedicated to bringing creativity and elegance to every celebration. We specialize in designing beautiful and personalized event environments for weddings, birthdays, engagements, anniversaries, and corporate occasions. Our team focuses on every detail to create visually stunning setups that reflect the unique style and preferences of our clients.', NULL, NULL, NULL, 1, 1, '2026-11-22 03:35:14', '2026-11-22 03:37:45'),
+(2, 2, 'mission', 'Our Mission', 'Our Mission', '', 'To make exceptional event decoration accessible through creative concepts, thoughtful design, and attention to detail. We aim to understand each client\'s expectations and deliver decoration solutions that turn ordinary venues into extraordinary celebration spaces.', NULL, NULL, NULL, 2, 1, '2026-11-22 03:35:14', '2026-11-22 03:35:32'),
+(3, 2, 'vision', 'Our Vision', 'Our Vision', '', 'To establish DecorEase as a leading and trusted event decoration brand, recognized for originality, professionalism, and excellence in design. We aspire to set new standards in event styling by continuously exploring fresh ideas and creating distinctive celebration experiences.', NULL, NULL, NULL, 3, 1, '2026-11-22 03:35:14', '2026-11-22 03:35:32');
+
 -- --------------------------------------------------------
 
 --
@@ -751,7 +825,8 @@ CREATE TABLE `payments` (
 INSERT INTO `payments` (`payment_id`, `booking_id`, `amount`, `method`, `transaction_reference`, `status`, `paid_at`, `created_at`) VALUES
 (1, 1, 35000.00, 'bkash', 'DEMO_001', 'completed', '2026-11-18 12:33:00', '2026-11-18 06:33:08'),
 (2, 2, 18000.00, 'nagad', 'DEMO-PAY-002', 'pending', NULL, '2026-11-18 06:33:08'),
-(3, 3, 5000.00, 'cash', 'DEMO-PAY-003', 'pending', NULL, '2026-11-18 06:33:08');
+(3, 3, 5000.00, 'cash', 'DEMO-PAY-003', 'pending', NULL, '2026-11-18 06:33:08'),
+(4, 4, 150000.00, 'bkash', 'DB1250', 'completed', NULL, '2026-11-22 05:48:03');
 
 -- --------------------------------------------------------
 
@@ -921,9 +996,33 @@ INSERT INTO `users` (`user_id`, `full_name`, `email`, `password_hash`, `phone`, 
 (7, 'Nusrat Jahan', 'nusrat@gmail.com', '$2y$10$CBO6i/0nvLkOWzytNtYLLetsJIV.JMhmSjjiz0mqBzn9uim2ab0ai', '01710000001', 'customer', 'active', '2026-11-18 06:33:08', '2026-11-18 11:20:27'),
 (8, 'Sadia Rahman', 'sadia.demo@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Y4oKoEa3Ro9llC/.og/at2uheWG/igi.', '01710000002', 'customer', 'active', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
 (9, 'Tanvir Ahmed', 'tanvir.demo@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Y4oKoEa3Ro9llC/.og/at2uheWG/igi.', '01710000003', 'customer', 'active', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
-(10, 'Arif Hasan', 'arif.demo@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Y4oKoEa3Ro9llC/.og/at2uheWG/igi.', '01710000004', 'employee', 'active', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
+(10, 'Mst. Rabeya', 'rabeya@gmail.com', '$2y$10$abXrTokXoc0BoI39FEvAa.FVaxSnoQ9UsOyRmbYwYgwNR4f9ss3Qi', '0189562315', 'employee', 'active', '2026-11-18 06:33:08', '2026-11-22 03:43:19'),
 (11, 'Mehedi Hasan', 'mehedi.demo@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Y4oKoEa3Ro9llC/.og/at2uheWG/igi.', '01710000005', 'employee', 'active', '2026-11-18 06:33:08', '2026-11-18 06:33:08'),
-(12, 'Kazi Arifur Rahman', 'arif@gmail.com', '$2y$10$wsf9QSZpEOniQhgAVUkCK.YoIYqj3k0uPTwcNB3Zm2LZI50aMc2EK', '01765319630', 'employee', 'inactive', '2026-11-18 09:09:45', '2026-11-18 09:10:19');
+(12, 'Kazi Arifur Rahman', 'arif@gmail.com', '$2y$10$90VChz2KG6bCp66u2pYy1eu2xrpSOnyi5l7phNat5kE491ACCKxsK', '01765319630', 'employee', 'active', '2026-11-18 09:09:45', '2026-11-22 03:48:37'),
+(13, 'Nusrat Jahan', 'nusrat.jahan@gmail.com', '$2y$10$nNnxMnsPFN4LnGnYQuHJpu6lK4pPzj/hlzC6nBcgEo2SIUMG/B252', '0189562314', 'employee', 'active', '2026-11-22 03:53:10', '2026-11-22 03:53:10'),
+(14, 'Tanvir Ahmed', 'tanvir@gmail.com', '$2y$10$643g32StDYAgtEWER3kV7ODCVJDsVFDyB8x.YuaK3P6RFxS1.vLBG', '0189562314', 'employee', 'active', '2026-11-22 03:56:13', '2026-11-22 03:56:13'),
+(15, 'Samiul Islam', 'saimul@gmail.com', '$2y$10$ZPdodXUfkyxdNVm62YaH.OYI3uVbakbpk3mPEHP/O2ls0ZVnnjZ7C', '0189562315', 'employee', 'active', '2026-11-22 03:59:46', '2026-11-22 03:59:46'),
+(16, 'Sakib Rahman', 'sakib.video@decorease.com', '$2y$10$kiiTiN69wfZH6xyVOtnvEuV68B/JkxcuTM94vVn3Cw1JqozlGuZYy', '01711000004', 'employee', 'active', '2026-11-22 06:41:24', '2026-11-22 06:41:24'),
+(17, 'Mehedi Hasan', 'mehedi.video@decorease.com', '$2y$10$veXOQ6np4G3U7FuoiNh3UO4o3rs1gCP1Q2YfejIVoGmwk3VhwIwqK', '0189562311', 'employee', 'active', '2026-11-22 06:43:00', '2026-11-22 06:43:00'),
+(18, 'Tanvir Hasan', 'tanvir.photographer@decorease.com', '$2y$10$wlH1AhGOEA1pUS3F8m8u5.i93m9smZ5zfZJlCJBtFatvs/aNdARPW', '01711000000', 'employee', 'active', '2026-11-22 06:44:04', '2026-11-22 06:44:04'),
+(19, 'Arif Mahmud', 'arif.photographer@decorease.com', '$2y$10$S3z4CARtEzhq7U2TAAhK7.f3st0rjMbNXUt8ocAOJupqyrZR69sOS', '01711000009', 'employee', 'active', '2026-11-22 06:45:46', '2026-11-22 06:45:46'),
+(20, 'Fahim Ahmed', 'fahim.editor@decorease.com', '$2y$10$LnGXvlqME.bBUDMTv5jaYO9/XsyTK9zLcHto9WbUzIHrecyZjoDPi', '01711000010', 'employee', 'active', '2026-11-22 06:47:50', '2026-11-22 06:47:50'),
+(21, 'Rakibul Islam', 'rakib.decorator@decorease.com', '$2y$10$boqx/B0DC1ZrrX/rxG3gn.YopoH6WJbrI9pBUlWfhmJFM2rXYl0hC', '01711000011', 'employee', 'active', '2026-11-22 06:49:11', '2026-11-22 06:49:11'),
+(22, 'Imran Hossain', 'imran.decorator@decorease.com', '$2y$10$NKQOAatRdBbPcOzU7VVHleXcyZKWt5Cv7xWgmE5GIdxo.OfRYrI0G', '01711000015', 'employee', 'active', '2026-11-22 06:50:40', '2026-11-22 06:50:40'),
+(23, 'Nusrat Islam', 'nusrat.flower@decorease.com', '$2y$10$./D2r9tHh3.ZzAihdvqILuo24SIju7.WU.eME8ZMEI.5i6GqCLPQK', '01711000033', 'employee', 'active', '2026-11-22 06:52:18', '2026-11-22 06:52:18'),
+(24, 'Jannatul Ferdous', 'jannat@gamil.com', '$2y$10$GMfYXXEp5DDPf4sNI2VTPuwP7.kjdbmGbYSXC6pgW2B.ODIO5A1ii', '01711000031', 'employee', 'active', '2026-11-22 06:53:28', '2026-11-22 06:53:28'),
+(25, 'Rafi Ahmed', 'rifat@gmail.com', '$2y$10$.g1w4SsK0wkKmATl4KzToe1WkjZ1.QQ2BsOnjMeiBwtWvJNK7uY8K', '01711000055', 'employee', 'active', '2026-11-22 07:00:21', '2026-11-22 07:00:21'),
+(26, 'Hasan Hahmud', 'hasan@gmail.com', '$2y$10$pKGPqDpPiqJ526H.0UKoHeGO4/wWnCIlhjXpHxaTXlS1nGEOajyMa', '', 'employee', 'active', '2026-11-22 07:01:02', '2026-11-22 07:01:02'),
+(27, 'Kamal Uddin', 'kamal@gmail.com', '$2y$10$MnT5LU9XmgqZxtKPmRDF..WvkrDVk/vs/n2vOwezKLfkPzxwjUJbW', '01711000008', 'employee', 'active', '2026-11-22 07:02:24', '2026-11-22 07:02:24'),
+(28, 'Rashed Ali', 'ali@gmail.com', '$2y$10$H0hAALwmnmOr.UtErOcKLeBozz2nQeA3/RE40sxufnQtPKlgmBcBG', '01711000007', 'employee', 'active', '2026-11-22 07:04:11', '2026-11-22 07:04:11'),
+(29, 'Sumon Mia', 'sumon12@gmail.com', '$2y$10$hTJUjIXWT7XTL9.u3ovAZu.Npgj5bwzQeYG7zjkrzu2usYN66uP6.', '01565878735', 'employee', 'active', '2026-11-22 07:05:08', '2026-11-22 07:05:08'),
+(30, 'Shakil Ahmed', 'shakil@gmail.com', '$2y$10$pFQFOSjEHB74ThckLZc2bONiKYSqYm2HMq/3m4RTBkNFE/8mtWcwK', '0189562319', 'employee', 'active', '2026-11-22 07:06:10', '2026-11-22 07:06:10'),
+(31, 'Ashik Hasan', 'ashik@gmail.com', '$2y$10$S28SWheI8JhZ6bhSf9cBeOZqL78j9XEwu/TUCFLGO431lAyaId3dK', '0189562317', 'employee', 'active', '2026-11-22 07:06:58', '2026-11-22 07:06:58'),
+(32, 'Nasir Uddin', 'nasir@gmail.com', '$2y$10$g.9VzuqnkF.894d4wdIZ2eyF255xnH07ydhORjzQfVIqPpebMS.bW', '0189562312', 'employee', 'active', '2026-11-22 07:07:42', '2026-11-22 07:07:42'),
+(33, 'Rokon Uddin', 'rokon@gmail.com', '$2y$10$X21dq44/gxuu4.tONsK0ieI967KA4y4AmTyzwfyoWazYAwjbodYvC', '01711000125', 'employee', 'active', '2026-11-22 07:08:32', '2026-11-22 07:08:32'),
+(34, 'Nela Moni', 'nela@gmail.com', '$2y$10$XgAfNq8JQOFs3IgleYMaDeWj3BsBI0ZbvN0ONJLGJNtF00K7X.TTi', '0189562309', 'employee', 'active', '2026-11-22 07:10:59', '2026-11-22 07:10:59'),
+(35, 'Farjana Akter', 'farjana@gmail.com', '$2y$10$qaZD/76vwbSZUef6cwgN2O9dslIcHB4BspVI2VQprdjRDaQJ6d5D6', '0189562307', 'employee', 'active', '2026-11-22 07:12:00', '2026-11-22 07:16:03'),
+(36, 'Rabeya Binte', 'rabi@gmail.com', '$2y$10$4FJieuZc5lwp/ucQ20Pea.baI2knLxTwK0cfyY9NkVpDopm2EsMIO', '016523987', 'employee', 'active', '2026-11-22 07:18:22', '2026-11-22 07:18:22');
 
 -- --------------------------------------------------------
 
@@ -1345,7 +1444,7 @@ ALTER TABLE `banners`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `booking_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `booking_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `booking_addons`
@@ -1363,7 +1462,7 @@ ALTER TABLE `booking_selections`
 -- AUTO_INCREMENT for table `booking_staff`
 --
 ALTER TABLE `booking_staff`
-  MODIFY `booking_staff_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `booking_staff_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `contact_messages`
@@ -1387,7 +1486,7 @@ ALTER TABLE `decoration_areas`
 -- AUTO_INCREMENT for table `employee_profiles`
 --
 ALTER TABLE `employee_profiles`
-  MODIFY `employee_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `employee_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `event_categories`
@@ -1429,13 +1528,13 @@ ALTER TABLE `food_menu_items`
 -- AUTO_INCREMENT for table `gallery_albums`
 --
 ALTER TABLE `gallery_albums`
-  MODIFY `album_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `album_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `gallery_images`
 --
 ALTER TABLE `gallery_images`
-  MODIFY `gallery_image_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `gallery_image_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `inventory`
@@ -1453,13 +1552,13 @@ ALTER TABLE `invoices`
 -- AUTO_INCREMENT for table `lighting_equipment`
 --
 ALTER TABLE `lighting_equipment`
-  MODIFY `lighting_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `lighting_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `media`
 --
 ALTER TABLE `media`
-  MODIFY `media_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `media_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
 -- AUTO_INCREMENT for table `navigation_items`
@@ -1477,7 +1576,7 @@ ALTER TABLE `notifications`
 -- AUTO_INCREMENT for table `packages`
 --
 ALTER TABLE `packages`
-  MODIFY `package_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `package_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `package_decoration_areas`
@@ -1543,13 +1642,13 @@ ALTER TABLE `pages`
 -- AUTO_INCREMENT for table `page_sections`
 --
 ALTER TABLE `page_sections`
-  MODIFY `section_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `section_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `payment_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `payment_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `reviews`
@@ -1597,7 +1696,7 @@ ALTER TABLE `testimonials`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `user_id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `vendors`

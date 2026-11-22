@@ -2,7 +2,7 @@
 <?php
 session_start();
 
-include_once '../db.php';
+require_once '../db.php';
 
 // Admin authentication
 if (!isset($_SESSION['admin_id'])) {
@@ -204,7 +204,7 @@ function e($value) {
         }
 
         .save-button {
-            background: #2563eb;
+            background: #6c4ab6;
             color: #fff;
             border: none;
             padding: 12px 25px;

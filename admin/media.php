@@ -365,9 +365,22 @@ $otherMedia = $totalMedia - $totalImages;
 
                                 <?php if (strpos((string)$media['file_type'], 'image/') === 0): ?>
 
-                                    <img
-    src="../uploads/<?php echo e($media['file_path']); ?>"
+                                    <?php
+$imagePath = ltrim($media['file_path'], '/');
+
+if (strpos($imagePath, 'uploads/') === 0) {
+    $imageUrl = '../' . $imagePath;
+} elseif (strpos($imagePath, 'media/') === 0) {
+    $imageUrl = '../uploads/' . $imagePath;
+} else {
+    $imageUrl = '../' . $imagePath;
+}
+?>
+
+<img
+    src="<?php echo e($imageUrl); ?>"
     alt="<?php echo e($media['alt_text'] ?: $media['file_name']); ?>"
+>
 >
 
                                 <?php else: ?>

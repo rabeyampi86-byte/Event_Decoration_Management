@@ -64,10 +64,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <span>Media Library</span>
                 </a>
             
+                
                 <a href="about.php">
                     <i class="fa-solid fa-circle-info"></i>
                     <span>About Us</span>
                 </a>
+
 
             </div>
 

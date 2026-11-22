@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($stmt && $stmt->execute()) {
-                    header("Location: gallery-albums.php?saved=1");
+                    header("Location: gallery_albums.php?saved=1");
                     exit;
                 } else {
                     $error = 'Unable to save album. Please check the database.';
@@ -179,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param("i", $albumId);
 
                 if ($stmt->execute() && $stmt->affected_rows > 0) {
-                    header("Location: gallery-albums.php?deleted=1");
+                    header("Location: gallery_albums.php?deleted=1");
                     exit;
                 } else {
                     $error = 'Unable to delete album.';
@@ -204,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("i", $albumId);
 
         if ($stmt->execute() && $stmt->affected_rows >= 0) {
-            header("Location: gallery-albums.php?updated=1");
+            header("Location: gallery_albums.php?updated=1");
             exit;
         } else {
             $error = 'Unable to update album status.';
@@ -687,7 +687,7 @@ $albums = $conn->query("
                     <?php echo $editAlbum ? 'Edit Album' : 'Add New Album'; ?>
                 </h3>
 
-                <form method="POST" action="gallery-albums.php">
+                <form method="POST" action="gallery_albums.php">
 
                     <input type="hidden" name="action" value="save">
 
@@ -814,7 +814,7 @@ $albums = $conn->query("
 
                         <?php if ($editAlbum): ?>
 
-                            <a href="gallery-albums.php" class="btn btn-secondary">
+                            <a href="gallery_albums.php" class="btn btn-secondary">
                                 Cancel
                             </a>
 
@@ -950,7 +950,7 @@ $albums = $conn->query("
 
                                             </a>
 
-                                            <a href="gallery-albums.php?edit=<?php echo (int)$album['album_id']; ?>"
+                                            <a href="gallery_albums.php?edit=<?php echo (int)$album['album_id']; ?>"
                                                class="btn btn-light"
                                                title="Edit">
 
@@ -958,7 +958,7 @@ $albums = $conn->query("
 
                                             </a>
 
-                                            <form method="POST" action="gallery-albums.php">
+                                            <form method="POST" action="gallery_albums.php">
 
                                                 <input type="hidden"
                                                        name="action"
