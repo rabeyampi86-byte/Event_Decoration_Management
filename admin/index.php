@@ -4,7 +4,10 @@ session_start();
 include_once '../db.php';
 
 // Already logged in admin
-if (isset($_SESSION['admin_id'])) {
+if (
+    isset($_SESSION['admin_id']) &&
+    isset($_SESSION['admin_name'])
+) {
     header("Location: admin_dashboard.php");
     exit;
 }
@@ -17,64 +20,96 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $password = $_POST['password'] ?? '';
 
     if (empty($email) || empty($password)) {
+
         $error = "Please enter both email and password.";
+
     } else {
 
         $stmt = $conn->prepare("
-            SELECT user_id, full_name, email, password_hash, role, status
+            SELECT
+                user_id,
+                full_name,
+                email,
+                password_hash,
+                role,
+                status
             FROM users
             WHERE email = ?
             LIMIT 1
         ");
 
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
+        if (!$stmt) {
+            $error = "Something went wrong. Please try again.";
+        } else {
 
-        $result = $stmt->get_result();
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
 
-        if ($result->num_rows === 1) {
+            $result = $stmt->get_result();
 
-            $admin = $result->fetch_assoc();
+            if ($result->num_rows === 1) {
 
-            if (
-                $admin['role'] === 'admin' &&
-                $admin['status'] === 'active' &&
-                password_verify($password, $admin['password_hash'])
-            ) {
+                $admin = $result->fetch_assoc();
 
-                session_regenerate_id(true);
+                if (
+                    $admin['role'] === 'admin' &&
+                    $admin['status'] === 'active' &&
+                    password_verify(
+                        $password,
+                        $admin['password_hash']
+                    )
+                ) {
 
-                $_SESSION['admin_id'] = $admin['user_id'];
-                $_SESSION['admin_name'] = $admin['full_name'];
-                $_SESSION['admin_email'] = $admin['email'];
+                    // Regenerate session ID
+                    session_regenerate_id(true);
 
-                header("Location: admin_dashboard.php");
-                exit;
+                    // Clear previous session data
+                    $_SESSION = [];
+
+                    // Store admin session
+                    $_SESSION['admin_id'] = $admin['user_id'];
+                    $_SESSION['admin_name'] = $admin['full_name'];
+                    $_SESSION['admin_email'] = $admin['email'];
+
+                    // Redirect to admin dashboard
+                    header("Location: admin_dashboard.php");
+                    exit;
+
+                } else {
+
+                    $error = "Invalid email or password.";
+
+                }
 
             } else {
+
                 $error = "Invalid email or password.";
+
             }
 
-        } else {
-            $error = "Invalid email or password.";
+            $stmt->close();
         }
-
-        $stmt->close();
     }
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
     <title>Admin Login | DecorEase</title>
 
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <style>
+
         * {
             margin: 0;
             padding: 0;
@@ -215,7 +250,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 padding: 30px 22px;
             }
         }
+
     </style>
+
 </head>
 
 <body>
@@ -223,28 +260,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <div class="login-container">
 
     <div class="brand">
+
         <div class="brand-icon">
             <i class="fas fa-calendar-check"></i>
         </div>
 
         <h1>DecorEase</h1>
+
         <p>Admin Panel Login</p>
+
     </div>
 
+
     <?php if (!empty($error)): ?>
+
         <div class="error-message">
+
             <i class="fas fa-exclamation-circle"></i>
+
             <?php echo htmlspecialchars($error); ?>
+
         </div>
+
     <?php endif; ?>
+
 
     <form method="POST" action="">
 
         <div class="form-group">
-            <label for="email">Email Address</label>
+
+            <label for="email">
+                Email Address
+            </label>
 
             <div class="input-box">
+
                 <i class="fas fa-envelope"></i>
+
                 <input
                     type="email"
                     id="email"
@@ -253,13 +305,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
                     required
                 >
+
             </div>
+
         </div>
 
+
         <div class="form-group">
-            <label for="password">Password</label>
+
+            <label for="password">
+                Password
+            </label>
 
             <div class="input-box">
+
                 <i class="fas fa-lock"></i>
 
                 <input
@@ -272,34 +331,54 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 <i class="fas fa-eye toggle-password"
                    id="togglePassword"></i>
+
             </div>
+
         </div>
 
+
         <button type="submit" class="login-btn">
+
             <i class="fas fa-sign-in-alt"></i>
+
             Login to Dashboard
+
         </button>
 
     </form>
 
+
     <div class="login-footer">
-        &copy; <?php echo date("Y"); ?> DecorEase. All Rights Reserved.
+
+        &copy; <?php echo date("Y"); ?>
+        DecorEase. All Rights Reserved.
+
     </div>
 
 </div>
 
+
 <script>
-    const togglePassword = document.getElementById("togglePassword");
-    const passwordInput = document.getElementById("password");
+
+    const togglePassword =
+        document.getElementById("togglePassword");
+
+    const passwordInput =
+        document.getElementById("password");
 
     togglePassword.addEventListener("click", function () {
-        const isPassword = passwordInput.type === "password";
 
-        passwordInput.type = isPassword ? "text" : "password";
+        const isPassword =
+            passwordInput.type === "password";
+
+        passwordInput.type =
+            isPassword ? "text" : "password";
 
         this.classList.toggle("fa-eye");
         this.classList.toggle("fa-eye-slash");
+
     });
+
 </script>
 
 </body>
